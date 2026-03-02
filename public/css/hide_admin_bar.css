@@ -1,0 +1,8 @@
+.box-header .box-tools,
+.dataTables_wrapper .dt-buttons,
+.pull-right .btn-group,
+a[href*="hardware/deleted"],
+a[href*="hardware/export"] {
+    display: none !important;
+}
+
