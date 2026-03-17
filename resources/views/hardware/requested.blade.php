@@ -47,7 +47,7 @@
 				@if (!$request->requestable)
 				@continue
 				@endif
-
+				
 				@php
 				$me = auth()->user();
 				$reqUser = $request->requestingUser();
@@ -74,16 +74,15 @@
 				    ($assignedId === $myLocationId);
 
 				$isPrivileged = $me && $me->groups()
-				->whereIn('name', ['IT GMI','Manager Archive','Warehouse','Archivist','Archivists','Admin'])
+				->whereIn('name', ['Warehouse keeper','Manager Archive','Admin'])
 				->exists();
 
 				$reqLocName  = $request->location() ? $request->location()->name : '';
 				$isInArchive = trim(strtolower($reqLocName)) === 'archive';
 
-				$canDoCheckout =
-				$isHoldingAsUser ||
-				$isHoldingAsMyLocation ||
-				($isInArchive && $isPrivileged);
+				$assetLocationId = $asset->location_id ?? null;
+
+				$canDoCheckout = $assetLocationId == $myLocationId;
 
 				if (!$canDoCheckout) {
 				$skip = true;
@@ -92,9 +91,33 @@
 				$inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
 				@endphp
 
-				@if ($skip)
-				@continue
-				@endif
+				<tr>
+				<td></td>
+
+				<td>{{ $request->requestable->name ?? '' }}</td>
+
+				<td>{{ $request->location()->name ?? '' }}</td>
+
+				<td>{{ $request->expected_checkin ?? '' }}</td>
+
+				<td>{{ $reqUser->name ?? '' }}</td>
+
+				<td>{{ $request->created_at }}</td>
+
+				<td>
+				<a href="/hardware/{{ $request->requestable->id }}" class="btn btn-sm btn-info">
+				View
+				</a>
+				</td>
+
+				<td>
+				<a href="/hardware/{{ $request->requestable->id }}/checkout" class="btn btn-sm btn-success">
+				Checkout
+				</a>
+				</td>
+				</tr>
+
+				@endforeach
                         </table>
 
                     </div> <!-- /.col-md-12 -->

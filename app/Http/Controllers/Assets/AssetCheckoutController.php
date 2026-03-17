@@ -13,9 +13,6 @@ use Illuminate\Support\Facades\Session;
 use \Illuminate\Contracts\View\View;
 use \Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Validator;
-use App\Models\CheckoutRequest;
-use Illuminate\Support\Facades\Schema;
-use App\Notifications\AcceptanceApprovalRequiredNotification;
 
 class AssetCheckoutController extends Controller
 {
@@ -30,34 +27,71 @@ class AssetCheckoutController extends Controller
      * @since [v1.0]
      * @return \Illuminate\Contracts\View\View
      */
-    public function create(Asset $asset) : View | RedirectResponse
-    {
+    
+public function create(Asset $asset) : View | RedirectResponse
+{
+    $this->authorize('checkout', $asset);
 
-        $this->authorize('checkout', $asset);
-
-        if (!$asset->model) {
-            return redirect()->route('hardware.show', $asset)
-                ->with('error', trans('admin/hardware/general.model_invalid_fix'));
-        }
-
-        // Invoke the validation to see if the audit will complete successfully
-        $asset->setRules($asset->getRules() + $asset->customFieldValidationRules());
-
-        if ($asset->isInvalid()) {
-            return redirect()->route('hardware.edit', $asset)->withErrors($asset->getErrors());
-        }
-
-        
-        if ($asset->availableForCheckout()) {
-            return view('hardware/checkout', compact('asset'))
-                ->with('statusLabel_list', Helper::deployableStatusLabelList())
-                ->with('table_name', 'Assets')
-                ->with('item', $asset);
-        }
-
-        return redirect()->route('hardware.index')
-            ->with('error', trans('admin/hardware/message.checkout.not_available'));
+    if (!$asset->model) {
+        return redirect()->route('hardware.show', $asset)
+            ->with('error', trans('admin/hardware/general.model_invalid_fix'));
     }
+
+    // Validation rules
+    $asset->setRules($asset->getRules() + $asset->customFieldValidationRules());
+
+    if ($asset->isInvalid()) {
+        return redirect()->route('hardware.edit', $asset)
+            ->withErrors($asset->getErrors());
+    }
+    $requestUserLocation = null;
+
+    $req = \App\Models\CheckoutRequest::with('user')
+        ->where('requestable_type', \App\Models\Asset::class)
+        ->where('requestable_id', $asset->id)
+        ->whereNull('canceled_at')
+        ->latest()
+        ->first();
+
+    if ($req && $req->user) {
+        $requestUserLocation = $req->user->location_id;
+    }
+    $inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
+
+    if ($inTransitId) {
+        $asset->status_id = $inTransitId;
+    }
+
+    if ($asset->availableForCheckout()) {
+    
+    	$requestUserLocation = null;
+
+	$req = \App\Models\CheckoutRequest::with('user')
+	    ->where('requestable_type', \App\Models\Asset::class)
+	    ->where('requestable_id', $asset->id)
+	    ->whereNull('canceled_at')
+	    ->latest()
+	    ->first();
+
+	if ($req && $req->user) {
+	    $requestUserLocation = $req->user->location_id;
+	}
+	
+	$inTransitId = \App\Models\Statuslabel::where('name','In Transit')->value('id');
+
+	if ($inTransitId) {
+	    $asset->status_id = $inTransitId;
+	}
+
+        return view('hardware/checkout', compact('asset','requestUserLocation'))
+            ->with('statusLabel_list', Helper::deployableStatusLabelList())
+            ->with('table_name', 'Assets')
+            ->with('item', $asset);
+    }
+
+    return redirect()->route('hardware.index')
+        ->with('error', trans('admin/hardware/message.checkout.not_available'));
+}
 
     /**
      * Validate and process the form data to check out an asset to a user.
@@ -129,53 +163,6 @@ class AssetCheckoutController extends Controller
             session()->put(['redirect_option' => $request->input('redirect_option'), 'checkout_to_type' => $request->input('checkout_to_type')]);
 
             if ($asset->checkOut($target, $admin, $checkout_at, $expected_checkin, $request->input('note'), $request->input('name'))) {
-            	
-            	$latest = CheckoutRequest::where('requestable_type', \App\Models\Asset::class)
-		    ->where('requestable_id', $asset->id)
-		    ->whereNull('canceled_at')
-		    ->when(Schema::hasColumn('checkout_requests', 'fulfilled_at'), fn($q) => $q->whereNull('fulfilled_at'))
-		    ->orderByDesc('created_at')
-		    ->orderByDesc('id')
-		    ->first();
-
-		if ($latest) {
-
-		    $updates = [];
-
-		    if (Schema::hasColumn('checkout_requests', 'checked_out_at')) {
-			$updates['checked_out_at'] = now();
-		    }
-
-		    if (Schema::hasColumn('checkout_requests', 'fulfilled_at')) {
-			$updates['fulfilled_at'] = now();
-		    }
-
-		    if (!empty($updates)) {
-			$latest->update($updates);
-		    }
-
-		    CheckoutRequest::where('requestable_type', \App\Models\Asset::class)
-			->where('requestable_id', $asset->id)
-			->whereNull('canceled_at')
-			->where('id', '!=', $latest->id)
-			->when(Schema::hasColumn('checkout_requests', 'fulfilled_at'), fn($q) => $q->whereNull('fulfilled_at'))
-			->update(['canceled_at' => now()]);
-		}
-		
-		if (method_exists($asset, 'requireAcceptance') && $asset->requireAcceptance() && $target) {
-
-		    $target->unreadNotifications()
-			->where('data->type', 'acceptance_required')
-			->where('data->item_tag', $asset->asset_tag)
-			->delete();
-
-		    $target->notify(new AcceptanceApprovalRequiredNotification([
-			'item_tag' => $asset->asset_tag,
-			'item_name' => $asset->name,
-			'from_name' => optional(auth()->user())->name,
-			'url' => url('/account/accept'),
-		    ]));
-		}
                 return Helper::getRedirectOption($request, $asset->id, 'Assets')
                     ->with('success', trans('admin/hardware/message.checkout.success'));
             }

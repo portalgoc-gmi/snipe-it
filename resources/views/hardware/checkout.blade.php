@@ -233,28 +233,21 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    // ---------- Prefill USER from request ----------
-    var requestedUserId = '{{ $requestedUserId ?? '' }}';
+    var locationId = '{{ $requestUserLocation ?? '' }}';
 
-    if (requestedUserId) {
-        var userSelect = document.querySelector('select[name="assigned_user"]');
+    if(locationId){
 
-        if (userSelect) {
-            userSelect.value = requestedUserId;
-            userSelect.dispatchEvent(new Event('change'));
+        var locationSelect = $('select[name="assigned_location"]');
+
+        if(locationSelect.length){
+
+            // δημιουργεί option για select2
+            var option = new Option("Requested Location", locationId, true, true);
+
+            locationSelect.append(option).trigger('change');
+
         }
-    }
 
-    // ---------- Prefill LOCATION from request ----------
-    var requestedLocationId = '{{ $requestedLocationId ?? '' }}';
-
-    if (requestedLocationId) {
-        var locationSelect = document.querySelector('select[name="assigned_location"]');
-
-        if (locationSelect) {
-            locationSelect.value = requestedLocationId;
-            locationSelect.dispatchEvent(new Event('change'));
-        }
     }
 
 });
