@@ -20,6 +20,13 @@ class CheckoutAcceptance extends Model
         'declined_at' => 'datetime',
         'alert_on_response_id' => 'integer',
     ];
+    
+    protected $fillable = [
+        'checkoutable_type',
+        'checkoutable_id',
+        'assigned_to_id',
+        'qty',
+    ];
 
     /**
      * Get the mail recipient from the config

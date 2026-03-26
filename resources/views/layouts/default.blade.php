@@ -1351,15 +1351,26 @@
                                         </a>
                                     </li>
                                     
-                                    <li id="returns-sidenav-option">
-				    	<a href="{{ route('returns.index') }}">
+                                    @php
+					    $returnsAllowedGroups = ['Warehouse keeper'];
+					    $canSeeReturns = auth()->check() && (
+						Gate::allows('admin') ||
+						Gate::allows('superadmin') ||
+						(method_exists(auth()->user(), 'isSuperUser') && auth()->user()->isSuperUser()) ||
+						auth()->user()->groups()->whereIn('name', $returnsAllowedGroups)->exists()
+					    );
+					@endphp
+					@if($canSeeReturns)
+					<li id="returns-sidenav-option">
+					    <a href="{{ route('returns.index') }}">
 						<x-icon type="circle" class="text-grey fa-fw"/>
 						<strong>Returns</strong>
 						<span class="badge">
-						    {{ \App\Models\ReturnRequest::whereNull('closed_at')->whereNull('checked_in_at')->count() }}
+						    {{ \App\Models\ReturnRequest::whereNull('closed_at')->count() }}
 						</span>
-				    	</a>
-				    </li>
+					    </a>
+					</li>
+					@endif
 
                                     <?php $status_navs = \App\Models\Statuslabel::where('show_in_nav', '=', 1)->withCount('assets as asset_count')->get(); ?>
                                     @if (count($status_navs) > 0)
@@ -2386,7 +2397,26 @@
                 var config = { childList: true, subtree: true };
                 observer.observe(document.body, config);
             });
+            
+            function refreshNotificationsMenu() {
+            	$.get("{{ url('/notifications/menu-data') }}", function (data) {
+		if ($('#notifications-count').length) {
+			if (data.count > 0) {
+				$('#notifications-count').text(data.count).show();
+			} else {
+				$('#notifications-count').hide();
+			  }
+		}
 
+		if ($('#notifications-list').length) {
+			$('#notifications-list').html(data.html);
+		}
+		});
+	    }
+	    
+	    setInterval(function () {
+		refreshNotificationsMenu();
+	    }, 10000);
 
         </script>
 

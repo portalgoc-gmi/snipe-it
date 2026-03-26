@@ -555,23 +555,23 @@
                         </td>
                         
                         <td class="hidden-print">
-				@if(!empty($asset->can_pickup))
-				  @if(empty($asset->open_return_id))
+			    @if(!empty($asset->can_pickup))
+				@if(empty($asset->open_return_id))
 				    <form method="POST" action="{{ route('returns.store', $asset->id) }}" style="display:inline;">
-				      @csrf
-				      <button type="submit" class="btn btn-xs btn-warning">Return to Archive</button>
+					@csrf
+					<button type="submit" class="btn btn-xs btn-warning">Return to Archive</button>
 				    </form>
-				  @elseif(empty($asset->open_return_in_transit_at))
-				    <form method="POST" action="{{ route('returns.in-transit', $asset->open_return_id) }}" style="display:inline;">
-				      @csrf
-				      <button type="submit" class="btn btn-xs btn-primary">Mark In Transit</button>
-				    </form>
-				  @else
-				    <span class="label label-warning">In Transit</span>
-				  @endif
+				@elseif(!empty($asset->open_return_in_transit_at))
+				    <span class="label label-info">
+					In Transit
+				    </span>
+				@else
+				    <span class="label label-warning" style="background-color:#f39c12 !important;">
+					Return Requested
+				    </span>
 				@endif
+			    @endif
 			</td>
-
                         
                         <td>
                             {!!  ($asset->defaultLoc) ? $asset->defaultLoc->present()->formattedNameLink : '' !!}
@@ -815,37 +815,8 @@
       </div><!-- nav-tabs-custom -->
     </div>
   </div>
-
-
-
-
-
-
-
 @stop
 
 @section('moar_scripts')
   @include ('partials.bootstrap-table')
-
-<script>
-function refreshUserAssetsTbody() {
-  const url = window.location.href.split('#')[0];
-
-  $.get(url, function (html) {
-    const $html = $('<div>').html(html);
-    const newTbodyHtml = $html.find('#userAssets tbody').html();
-
-    if (newTbodyHtml !== undefined) {
-      $('#userAssets tbody').html(newTbodyHtml);
-    }
-  });
-}
-
-setInterval(function () {
-  if ($('#assets').hasClass('active')) {
-    refreshUserAssetsTbody();
-  }
-}, 5000);
-</script>
-
 @stop

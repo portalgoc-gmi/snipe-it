@@ -34,10 +34,25 @@ class AcceptanceController extends Controller
      * Show a listing of pending checkout acceptances for the current user
      */
     public function index() : View
-    {
-        $acceptances = CheckoutAcceptance::forUser(auth()->user())->pending()->get();
-        return view('account/accept.index', compact('acceptances'));
-    }
+	{
+	    $user = auth()->user();
+
+	    $myAcceptances = CheckoutAcceptance::pending()
+		->where('assigned_to_id', $user->id)
+		->whereHasMorph('checkoutable', [\App\Models\Asset::class], function ($query) use ($user) {
+		    $query->where('location_id', $user->location_id);
+		})
+		->get();
+
+	    $departmentAcceptances = CheckoutAcceptance::pending()
+		->where('assigned_to_id', '!=', $user->id)
+		->whereHasMorph('checkoutable', [\App\Models\Asset::class], function ($query) use ($user) {
+		    $query->where('location_id', $user->location_id);
+		})
+		->get();
+
+	    return view('account/accept.index', compact('myAcceptances', 'departmentAcceptances'));
+	}
 
     /**
      * Shows a form to either accept or decline the checkout acceptance
@@ -57,9 +72,13 @@ class AcceptanceController extends Controller
             return redirect()->route('account.accept')->with('error', trans('admin/users/message.error.asset_already_accepted'));
         }
 
-        if (! $acceptance->isCheckedOutTo(auth()->user())) {
-            return redirect()->route('account.accept')->with('error', trans('admin/users/message.error.incorrect_user_accepted'));
-        }
+        if (
+	    $acceptance->checkoutable_type === \App\Models\Asset::class &&
+	    $acceptance->checkoutable &&
+	    $acceptance->checkoutable->location_id !== auth()->user()->location_id
+	) {
+	    return redirect()->route('account.accept')->with('error', trans('admin/users/message.error.incorrect_user_accepted'));
+	}
 
         if (! Company::isCurrentUserHasAccess($acceptance->checkoutable)) {
             return redirect()->route('account.accept')->with('error', trans('general.error_user_company'));
@@ -90,9 +109,13 @@ class AcceptanceController extends Controller
             return redirect()->route('account.accept')->with('error', trans('admin/users/message.error.asset_already_accepted'));
         }
 
-        if (! $acceptance->isCheckedOutTo(auth()->user())) {
-            return redirect()->route('account.accept')->with('error', trans('admin/users/message.error.incorrect_user_accepted'));
-        }
+        if (
+	    $acceptance->checkoutable_type === \App\Models\Asset::class &&
+	    $acceptance->checkoutable &&
+	    $acceptance->checkoutable->location_id !== auth()->user()->location_id
+	) {
+	    return redirect()->route('account.accept')->with('error', trans('admin/users/message.error.incorrect_user_accepted'));
+	}
 
         if (! Company::isCurrentUserHasAccess($acceptance->checkoutable)) {
             return redirect()->route('account.accept')->with('error', trans('general.insufficient_permissions'));
@@ -182,17 +205,20 @@ class AcceptanceController extends Controller
 
 		    $item->save();
 		}
-
-
+	
+	    $pdf_filename = null;
+/*
             $pdf_filename = 'accepted-'.$acceptance->checkoutable_id.'-'.$acceptance->display_checkoutable_type.'-eula-'.date('Y-m-d-h-i-s').'.pdf';
 
             // Generate the PDF content
             $pdf_content = $acceptance->generateAcceptancePdf($data, $acceptance);
             Storage::put('private_uploads/eula-pdfs/' .$pdf_filename, $pdf_content);
 
+*/
             // Log the acceptance
             $acceptance->accept($sig_filename, $item->getEula(), $pdf_filename, $request->input('note'));
 
+/*
             // Send the PDF to the signing user
             if (($request->input('send_copy') == '1') && ($assigned_user->email !='')) {
 
@@ -209,6 +235,7 @@ class AcceptanceController extends Controller
             } catch (\Exception $e) {
                 Log::warning($e);
             }
+*/
             event(new CheckoutAccepted($acceptance));
 
             $return_msg = trans('admin/users/message.accepted');
@@ -237,7 +264,7 @@ class AcceptanceController extends Controller
             $return_msg = trans('admin/users/message.declined');
         }
 
-
+/*
         // Send an email notification if one is requested
         if ($acceptance->alert_on_response_id) {
             try {
@@ -257,7 +284,8 @@ class AcceptanceController extends Controller
                 Log::warning($e);
             }
         }
-        
+  
+*/
         if (Auth::check() && isset($item)) {
 	    Auth::user()->unreadNotifications()
 		->where('data->type', 'acceptance_required')

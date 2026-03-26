@@ -228,5 +228,39 @@ class NotificationsController extends Controller
             'count' => $user ? $user->unreadNotifications()->count() : 0,
         ]);
     }
+    
+    public function menuData()
+	{
+	    $user = auth()->user();
+
+	    $notifications = $user->unreadNotifications()
+		->latest()
+		->take(5)
+		->get();
+
+	    $html = '';
+
+	    foreach ($notifications as $notification) {
+		$title = $notification->data['title'] ?? 'Notification';
+		$itemName = $notification->data['item_name'] ?? 'Asset';
+		$requestedBy = $notification->data['requested_by'] ?? 'User';
+		$url = route('notifications.open', $notification->id);
+
+		$html .= '
+		    <li>
+		        <a href="'.$url.'">
+		            <strong>'.$title.'</strong><br>
+		            '.$itemName.'<br>
+		            <small>'.$requestedBy.'</small>
+		        </a>
+		    </li>
+		';
+	    }
+
+	    return response()->json([
+		'count' => $user->unreadNotifications()->count(),
+		'html' => $html,
+	    ]);
+	}
 }
 

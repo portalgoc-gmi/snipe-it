@@ -499,6 +499,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications/dropdown', [NotificationsController::class, 'dropdown'])
         ->name('notifications.dropdown');
 
+    Route::get('/notifications/menu-data', [NotificationsController::class, 'menuData'])
+    ->name('notifications.menuData');
+    
     Route::delete('/notifications/{id}', [NotificationsController::class, 'destroy'])
         ->whereUuid('id')
         ->name('notifications.destroy');

@@ -1,5 +1,12 @@
 @push('css')
     <link rel="stylesheet" href="{{ url(mix('css/dist/bootstrap-table.css')) }}">
+    <style>
+	.deceased-row td {
+	    background-color: #d9c2f0 !important;
+	    color: #4b2e83 !important;
+	    font-weight: 600;
+	}
+    </style>
 @endpush
 
 @push('js')
@@ -147,6 +154,7 @@
                     clearSearch: 'fa-times',
                 },
                 locale: '{{ app()->getLocale() }}',
+                rowStyle: deceasedRowStyle,
                 exportOptions: export_options,
                 exportTypes: ['xlsx', 'excel', 'csv', 'pdf', 'json', 'xml', 'txt', 'sql', 'doc'],
                 onLoadSuccess: function () { // possible 'fixme'? this might be for contents, not for headers?
@@ -805,7 +813,20 @@
         }
         return {};
     }
+    
+    function deceasedRowStyle(row, index) {
+	    if (
+		(row.custom_fields) &&
+		(row.custom_fields['Patient Status']) &&
+		(row.custom_fields['Patient Status'].value === 'Deceased')
+	    ) {
+		return {
+		    classes: 'deceased-row'
+		};
+	    }
 
+	    return {};
+	}
 
     // These methods dynamically add/remove hidden input values in the bulk actions form
     $('.snipe-table').on('check.bs.table .btSelectItem', function (row, $element) {

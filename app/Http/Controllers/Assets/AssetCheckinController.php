@@ -17,6 +17,7 @@ use \Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Validator;
 use App\Models\CheckoutRequest;
 use Illuminate\Support\Facades\Schema;
+use App\Models\Location;
 
 class AssetCheckinController extends Controller
 {
@@ -56,6 +57,13 @@ class AssetCheckinController extends Controller
             'App\Models\Location' => trans('admin/hardware/form.redirect_to_type', ['type' => trans('general.location')]),
             default => trans('admin/hardware/form.redirect_to_type', ['type' => trans('general.user')]),
         };
+        
+        $inArchiveId = \App\Models\Statuslabel::where('name', 'In Archive')->value('id');
+
+	if ($inArchiveId) {
+	    $asset->status_id = $inArchiveId;
+	}
+	
         return view('hardware/checkin', compact('asset', 'target_option'))
             ->with('item', $asset)
             ->with('statusLabel_list', Helper::statusLabelList())
@@ -103,8 +111,16 @@ class AssetCheckinController extends Controller
         $asset->name = $request->input('name');
 
         if ($request->filled('status_id')) {
-            $asset->status_id = e($request->input('status_id'));
-        }
+	    $asset->status_id = e($request->input('status_id'));
+	}
+
+	$inArchiveId = \App\Models\Statuslabel::where('name', 'In Archive')->value('id');
+	$archiveLocationId = \App\Models\Location::where('name', 'Archive')->value('id');
+
+	if ($inArchiveId && (int) $asset->status_id === (int) $inArchiveId && $archiveLocationId) {
+	    $asset->location_id = $archiveLocationId;
+	    $asset->rtd_location_id = $archiveLocationId;
+	}
 
         // Add any custom fields that should be included in the checkout
         $asset->customFieldsForCheckinCheckout('display_checkin');
@@ -153,7 +169,6 @@ class AssetCheckinController extends Controller
         $asset->customFieldsForCheckinCheckout('display_checkin');
 
 	if ($asset->save()) {
-
 	    $q = CheckoutRequest::where('requestable_type', \App\Models\Asset::class)
 		->where('requestable_id', $asset->id)
 		->whereNull('canceled_at');
@@ -165,10 +180,31 @@ class AssetCheckinController extends Controller
 	    $q->update(['canceled_at' => now()]);
 
 	    if (class_exists(\App\Models\ReturnRequest::class)) {
-		\App\Models\ReturnRequest::where('asset_id', $asset->id)
+		$returnId = request()->query('return_id');
+
+		$returnQuery = \App\Models\ReturnRequest::where('asset_id', $asset->id)
 		    ->whereNull('canceled_at')
-		    ->whereNull('received_at')
-		    ->update(['received_at' => now()]);
+		    ->whereNull('closed_at');
+
+		if ($returnId) {
+		    $returnQuery->where('id', $returnId);
+		} else {
+		    $returnQuery->whereNotNull('received_at')
+		        ->orderByDesc('requested_at')
+		        ->orderByDesc('id');
+		}
+
+		$return = $returnQuery->first();
+
+		if ($return) {
+		    if (is_null($return->received_at)) {
+		        $return->received_at = now();
+		    }
+
+		    $return->checked_in_at = now();
+		    $return->closed_at = now();
+		    $return->save();
+		}
 	    }
 
 	    event(new CheckoutableCheckedIn($asset, $target, auth()->user(), $request->input('note'), $checkin_at, $originalValues));

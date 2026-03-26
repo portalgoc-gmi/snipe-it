@@ -44,25 +44,29 @@ public function create(Asset $asset) : View | RedirectResponse
         return redirect()->route('hardware.edit', $asset)
             ->withErrors($asset->getErrors());
     }
+    
     $requestUserLocation = null;
-
+    $requestedUserId = null;
+    
     $req = \App\Models\CheckoutRequest::with('user')
-        ->where('requestable_type', \App\Models\Asset::class)
-        ->where('requestable_id', $asset->id)
-        ->whereNull('canceled_at')
-        ->latest()
-        ->first();
+	    ->where('requestable_type', \App\Models\Asset::class)
+	    ->where('requestable_id', $asset->id)
+	    ->whereNull('canceled_at')
+	    ->latest()
+	    ->first();
 
     if ($req && $req->user) {
-        $requestUserLocation = $req->user->location_id;
-    }
+	    $requestedUserId = $req->user->id;
+	    $requestUserLocation = $req->user->location_id;
+	}
+    
     $inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
 
     if ($inTransitId) {
         $asset->status_id = $inTransitId;
     }
 
-    if ($asset->availableForCheckout()) {
+    if ($asset->availableForCheckout() || $req) {
     
     	$requestUserLocation = null;
 
@@ -83,7 +87,7 @@ public function create(Asset $asset) : View | RedirectResponse
 	    $asset->status_id = $inTransitId;
 	}
 
-        return view('hardware/checkout', compact('asset','requestUserLocation'))
+        return view('hardware/checkout', compact('asset', 'requestUserLocation', 'requestedUserId'))
             ->with('statusLabel_list', Helper::deployableStatusLabelList())
             ->with('table_name', 'Assets')
             ->with('item', $asset);
@@ -102,15 +106,21 @@ public function create(Asset $asset) : View | RedirectResponse
      */
     public function store(AssetCheckoutRequest $request, $assetId) : RedirectResponse
     {
-
-
+    	
+	$activeRequest = \App\Models\CheckoutRequest::with('user')
+	    ->where('requestable_type', \App\Models\Asset::class)
+	    ->where('requestable_id', $assetId)
+	    ->whereNull('canceled_at')
+	    ->latest()
+	    ->first();
+	
         try {
             // Check if the asset exists
             if (! $asset = Asset::find($assetId)) {
                 return redirect()->route('hardware.index')->with('error', trans('admin/hardware/message.does_not_exist'));
-            } elseif (! $asset->availableForCheckout()) {
-                return redirect()->route('hardware.index')->with('error', trans('admin/hardware/message.checkout.not_available'));
-            }
+            } elseif (! $asset->availableForCheckout() && ! $activeRequest) {
+		return redirect()->route('hardware.index')->with('error', trans('admin/hardware/message.checkout.not_available'));
+		}
             $this->authorize('checkout', $asset);
 
             if (!$asset->model) {
@@ -118,11 +128,21 @@ public function create(Asset $asset) : View | RedirectResponse
             }
 
             $admin = auth()->user();
-
-            $target = $this->determineCheckoutTarget();
-            session()->put(['checkout_to_type' => $target]);
-
-            $asset = $this->updateAssetLocation($asset, $target);
+            
+            // force checkout to USER
+            $request->merge(['checkout_to_type' => 'user']);
+            session()->put(['checkout_to_type' => 'user']);
+            
+            $target = \App\Models\User::find($request->input('assigned_user'));
+            
+            if (!$target) {
+            	return redirect()->back()->with('error', 'Please select a user.');
+            	}
+        
+            // location ΜΟΝΟ από τον user που έκανε request
+            if ($target->location_id) {
+		$asset->location_id = $target->location_id;
+		}
 
             $checkout_at = date('Y-m-d H:i:s');
             if (($request->filled('checkout_at')) && ($request->input('checkout_at') != date('Y-m-d'))) {
@@ -160,9 +180,20 @@ public function create(Asset $asset) : View | RedirectResponse
                 }
             }
 
-            session()->put(['redirect_option' => $request->input('redirect_option'), 'checkout_to_type' => $request->input('checkout_to_type')]);
+            session()->put([
+		    'redirect_option' => $request->input('redirect_option'),
+		    'checkout_to_type' => 'user'
+		]);
+	
+	    if (! $asset->availableForCheckout() && $activeRequest) {
+		    $asset->assignedTo()->disassociate();
+		    $asset->accepted = null;
+		    $asset->expected_checkin = null;
+		    $asset->save();
+		}
 
             if ($asset->checkOut($target, $admin, $checkout_at, $expected_checkin, $request->input('note'), $request->input('name'))) {
+            	
                 return Helper::getRedirectOption($request, $asset->id, 'Assets')
                     ->with('success', trans('admin/hardware/message.checkout.success'));
             }

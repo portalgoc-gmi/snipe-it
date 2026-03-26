@@ -229,28 +229,20 @@
 
 @section('moar_scripts')
 @include('partials/assets-assigned')
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    var requestedUserId = '{{ $requestedUserId ?? '' }}';
 
-    var locationId = '{{ $requestUserLocation ?? '' }}';
+    $('input[name="checkout_to_type"][value="user"]').prop('checked', true).trigger('change');
 
-    if(locationId){
+    $('[name="assigned_user"]').closest('.form-group').show();
+    $('[name="assigned_location"]').closest('.form-group').hide();
 
-        var locationSelect = $('select[name="assigned_location"]');
-
-        if(locationSelect.length){
-
-            // δημιουργεί option για select2
-            var option = new Option("Requested Location", locationId, true, true);
-
-            locationSelect.append(option).trigger('change');
-
-        }
-
+    var userSelect = $('select[name="assigned_user"]');
+    if (requestedUserId && userSelect.length) {
+        var userOption = new Option("Requested User", requestedUserId, true, true);
+        userSelect.append(userOption).trigger('change');
     }
-
 });
 </script>
-
 @stop

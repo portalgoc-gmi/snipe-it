@@ -102,9 +102,6 @@
                                             </div>
                                         </div>
 
-					@php
-					    $archiveStatusId = 8;
-					@endphp
                                         <!-- Status -->
                                         <div class="form-group {{ $errors->has('status_id') ? 'error' : '' }}">
                                             <label for="status_id" class="col-sm-3 control-label">
@@ -113,7 +110,7 @@
                                             <div class="col-md-8 required">
                                                 <x-input.select
                                                     name="status_id"
-                                                    :selected="old('status_id', $archiveStatusId)"
+                                                    :selected="old('status_id', $asset->status_id)"
                                                     id="modal-statuslabel_types"
                                                     :options="$statusLabel_list"
                                                     style="width: 100%"
@@ -134,11 +131,11 @@
                                         <div class="form-group">
                                             <div class="col-md-9 col-md-offset-3">
                                                 <label class="form-control">
-                                                    <input name="update_default_location" type="radio" value="1" checked="checked" aria-label="update_default_location" />
+                                                    <input name="update_default_location" type="radio" value="0" aria-label="update_default_location" />
                                                     {{ trans('admin/hardware/form.asset_location') }}
                                                 </label>
                                                 <label class="form-control">
-                                                    <input name="update_default_location" type="radio" value="0" aria-label="update_default_location" />
+                                                    <input name="update_default_location" type="radio" value="0" checked="checked" aria-label="update_default_location" />
                                                     {{ trans('admin/hardware/form.asset_location_update_default_current') }}
                                                 </label>
                                             </div>

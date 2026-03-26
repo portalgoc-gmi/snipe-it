@@ -73,7 +73,7 @@ class Asset extends Depreciable
     'open_return_id',
     'open_return_in_transit_at',
     'can_pickup',
-    ];
+	];
 
     /**
      * Leaving this commented out, since we need to test further, but this would eager load the model relationship every single
@@ -2324,6 +2324,7 @@ class Asset extends Depreciable
 
     }
     
+    
     public function getOpenReturnIdAttribute()
 	{
 	    if (!Schema::hasTable('return_requests')) {
@@ -2333,12 +2334,14 @@ class Asset extends Depreciable
 	    return DB::table('return_requests')
 		->where('asset_id', $this->id)
 		->whereNull('canceled_at')
-		->whereNull('received_at')
+		->whereNull('closed_at')
+		->whereNull('checked_in_at')
+		->orderByDesc('requested_at')
 		->orderByDesc('id')
 		->value('id');
 	}
-
-	public function getOpenReturnInTransitAtAttribute()
+	
+     public function getOpenReturnInTransitAtAttribute()
 	{
 	    if (!Schema::hasTable('return_requests')) {
 		return null;
@@ -2347,7 +2350,9 @@ class Asset extends Depreciable
 	    return DB::table('return_requests')
 		->where('asset_id', $this->id)
 		->whereNull('canceled_at')
-		->whereNull('received_at')
+		->whereNull('closed_at')
+		->whereNull('checked_in_at')
+		->orderByDesc('requested_at')
 		->orderByDesc('id')
 		->value('in_transit_at');
 	}
