@@ -154,10 +154,13 @@ public function create(Asset $asset) : View | RedirectResponse
                 $expected_checkin = $request->input('expected_checkin');
             }
 
-            if ($request->filled('status_id')) {
-                $asset->status_id = $request->input('status_id');
-            }
-
+            $inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
+            
+            if ($inTransitId) {
+	   	$asset->status_id = $inTransitId;
+	    } elseif ($request->filled('status_id')) {
+	        $asset->status_id = $request->input('status_id');
+	    }
 
             if(!empty($asset->licenseseats->all())){
                 if(request('checkout_to_type') == 'user') {

@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Log;
 use App\Helpers\Helper;
 use App\Models\Statuslabel;
 use Illuminate\Support\Facades\Auth;
+use App\Notifications\AssetDeclinedForRecheckoutNotification;
 
 class AcceptanceController extends Controller
 {
@@ -242,26 +243,66 @@ class AcceptanceController extends Controller
 
         // Item was declined
         } else {
-        
-        	if ($acceptance->checkoutable_type === \App\Models\Asset::class) {
-
-		    $requestedId = Statuslabel::where('name', 'Requested')->value('id');
-
-		    if ($requestedId) {
-			$item->status_id = $requestedId;
-			$item->save();
+        	for ($i = 0; $i < ($acceptance->qty ?? 1); $i++) {
+			$acceptance->decline($sig_filename, $request->input('note'));
 		    }
 
-		}
+		    if ($acceptance->checkoutable_type === \App\Models\Asset::class) {
+			$inTransitId = Statuslabel::where('name', 'In Transit')->value('id');
 
-            for ($i = 0; $i < ($acceptance->qty ?? 1); $i++) {
-                $acceptance->decline($sig_filename, $request->input('note'));
-            }
+			if ($inTransitId) {
+			    $item->status_id = $inTransitId;
+			}
 
-            $acceptance->notify(new AcceptanceItemDeclinedNotification($data));
-            Log::debug('New event acceptance.');
-            event(new CheckoutDeclined($acceptance));
-            $return_msg = trans('admin/users/message.declined');
+			// γύρνα το location πίσω στο default / previous holding place
+			if (!empty($item->rtd_location_id)) {
+			    $item->location_id = $item->rtd_location_id;
+			}
+
+			$item->save();
+			
+			$sender = null;
+
+			$lastCheckoutLog = $item->assetlog()
+			    ->where('action_type', 'checkout')
+			    ->latest('id')
+			    ->first();
+
+			if ($lastCheckoutLog && !empty($lastCheckoutLog->created_by)) {
+			    $sender = User::find($lastCheckoutLog->created_by);
+			}
+			
+			if ($sender) {
+			    $sender->unreadNotifications()
+				->where('data->type', 'asset_declined_recheckout')
+				->where('data->asset_id', $item->id)
+				->update(['read_at' => now()]);
+
+			    $sender->unreadNotifications()
+				->where('data->type', 'asset_request')
+				->where('data->item_id', $item->id)
+				->update(['read_at' => now()]);
+
+			    $sender->notify(new AssetDeclinedForRecheckoutNotification([
+				'asset_id' => $item->id,
+				'asset_tag' => $item->asset_tag,
+				'asset_name' => $item->name ?? $item->display_name,
+				'declined_by' => auth()->user()?->display_name,
+				'note' => $request->input('note'),
+				'message' => 'The user declined receiving this file. Please checkout it again.',
+			    ]));
+			}
+
+			
+		    }
+
+		    /*
+		    $acceptance->notify(new AcceptanceItemDeclinedNotification($data));
+		    Log::debug('New event acceptance.');
+		    event(new CheckoutDeclined($acceptance));
+		    */
+
+		    $return_msg = trans('admin/users/message.declined');
         }
 
 /*

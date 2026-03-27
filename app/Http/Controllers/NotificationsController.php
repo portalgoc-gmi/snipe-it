@@ -55,6 +55,10 @@ class NotificationsController extends Controller
 			if ($type === 'acceptance_required') {
 				return $n->id;
 			}
+			if ($type === 'asset_declined_recheckout') {
+			    $assetId = $n->data['asset_id'] ?? null;
+			    return $type . '|' . ($assetId ?: 'none');
+			}
 
 			$itemId   = $n->data['item_id']   ?? null;   // asset_request
 			$assetId  = $n->data['asset_id']  ?? null;   // returns/other
@@ -165,7 +169,8 @@ class NotificationsController extends Controller
         if ($type === 'asset_request') return redirect('/hardware/requested');
         if ($type === 'asset_request_canceled') return redirect('/hardware/requested');
         if (in_array($type, ['return_requested', 'return_in_transit', 'return_received'], true)) return redirect('/returns');
-
+        if ($type === 'asset_declined_recheckout') return redirect('/hardware/requested');
+        
         return redirect('/notifications');
     }
 
