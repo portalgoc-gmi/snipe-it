@@ -9,17 +9,19 @@ class ReturnStatusNotification extends Notification
 {
     use Queueable;
 
-    public string $event; // requested | in_transit | received
-    public $return;       // ReturnRequest
-    public $asset;        // Asset
-    public $actor;        // User
+    public string $event;
+    public $return;
+    public $asset;
+    public $actor;
+    public ?int $bulkCount;
 
-    public function __construct(string $event, $return, $asset = null, $actor = null)
+    public function __construct(string $event, $return, $asset = null, $actor = null, ?int $bulkCount = null)
     {
-        $this->event  = $event;
+        $this->event = $event;
         $this->return = $return;
-        $this->asset  = $asset ?: ($return->asset ?? null);
-        $this->actor  = $actor;
+        $this->asset = $asset ?: ($return->asset ?? null);
+        $this->actor = $actor;
+        $this->bulkCount = $bulkCount;
     }
 
     public function via($notifiable): array
@@ -41,31 +43,42 @@ class ReturnStatusNotification extends Notification
         };
 
         $title = match ($this->event) {
-            'requested'  => 'Return to Archive',
-            'in_transit' => 'Marked In Transit',
-            'received'   => 'Marked Received',
-            default      => 'Return update',
-        };
+	    'requested'  => (!empty($this->bulkCount) && $this->bulkCount > 1)
+		? "{$this->bulkCount} Assets - Return to Archive"
+		: 'Return to Archive',
+	    'in_transit' => 'Marked In Transit',
+	    'received'   => (!empty($this->bulkCount) && $this->bulkCount > 1)
+		? "{$this->bulkCount} Assets - Marked Received"
+		: 'Marked Received',
+	    default      => 'Return update',
+	};
 
-        $message = match ($this->event) {
-            'requested'  => "Return requested for {$assetName} ({$assetTag}) by {$who}.",
-            'in_transit' => "Return marked In Transit for {$assetName} ({$assetTag}) by {$who}.",
-            'received'   => "Warehouse received {$assetName} ({$assetTag}) (by {$who}).",
-            default      => "Return updated for {$assetName} ({$assetTag}) by {$who}.",
-        };
+        if ($this->event === 'requested' && !empty($this->bulkCount) && $this->bulkCount > 1) {
+	    $message = "{$this->bulkCount} assets were requested for return to archive by {$who}.";
+	} elseif ($this->event === 'received' && !empty($this->bulkCount) && $this->bulkCount > 1) {
+	    $message = "{$this->bulkCount} assets were marked as received by {$who}.";
+	} else {
+	    $message = match ($this->event) {
+		'requested'  => "Return requested for {$assetName} ({$assetTag}) by {$who}.",
+		'in_transit' => "Return marked In Transit for {$assetName} ({$assetTag}) by {$who}.",
+		'received'   => "Warehouse received {$assetName} ({$assetTag}) (by {$who}).",
+		default      => "Return updated for {$assetName} ({$assetTag}) by {$who}.",
+	    };
+	}
 
         $url = ($this->event === 'received')
             ? '/hardware/' . ($this->asset?->id)
             : '/returns';
 
         return [
-            'type'      => $type,
-            'title'     => $title,
-            'message'   => $message,
-            'url'       => $url,
-            'event'     => $this->event,
-            'return_id' => $this->return?->id,
-            'asset_id'  => $this->asset?->id,
+            'type'       => $type,
+            'title'      => $title,
+            'message'    => $message,
+            'url'        => $url,
+            'event'      => $this->event,
+            'return_id'  => $this->return?->id,
+            'asset_id'   => $this->asset?->id,
+            'bulk_count' => $this->bulkCount,
         ];
     }
 }

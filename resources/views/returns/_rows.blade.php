@@ -1,6 +1,26 @@
 @foreach($returns as $r)
   <tr>
     <td>
+      @if($canWarehouse && !empty($r->in_transit_at) && !$r->received_at)
+	    <input
+	      type="checkbox"
+	      class="return-check return-check-received"
+	      name="selected_returns[]"
+	      value="{{ $r->id }}"
+	      form="bulkReceivedForm"
+	    >
+	@elseif($canWarehouse && $r->received_at && !$r->checked_in_at && $r->asset)
+	    <input
+	      type="checkbox"
+	      class="return-check return-check-checkin"
+	      name="selected_returns[]"
+	      value="{{ $r->id }}"
+	      form="bulkCheckinForm"
+	    >
+	@endif
+    </td>
+
+    <td>
       @if($r->asset)
         <a href="{{ url('hardware/'.$r->asset->id) }}">
           {{ $r->asset->name ?? 'Asset' }} ({{ $r->asset->asset_tag ?? $r->asset->id }})
@@ -19,10 +39,14 @@
     </td>
 
     <td>
-      @if($r->received_at)
-        <span class="label label-success">Received</span>
+      @if(!empty($r->in_transit_at))
+        <span class="label label-info">
+          {{ \Carbon\Carbon::parse($r->in_transit_at)->format('Y-m-d H:i') }}
+        </span>
+      @elseif(!$r->received_at)
+        <span class="label label-info">Return Requested</span>
       @else
-        <span class="label label-warning">Return Requested</span>
+        <span class="text-muted">—</span>
       @endif
     </td>
 
@@ -37,18 +61,18 @@
     </td>
 
     <td style="white-space:nowrap;">
-      @if($canWarehouse && !$r->received_at)
-        <form method="POST" action="{{ route('returns.received', $r) }}" style="display:inline;">
-          @csrf
-          <button type="submit" class="btn btn-xs btn-success">Mark Received</button>
-        </form>
-      @endif
+	  @if($canWarehouse && !empty($r->in_transit_at) && !$r->received_at)
+	    <form method="POST" action="{{ route('returns.received', $r) }}" style="display:inline;">
+	      @csrf
+	      <button type="submit" class="btn btn-xs btn-success single-received-btn">Mark Received</button>
+	    </form>
+	  @endif
 
-      @if($canWarehouse && $r->received_at && !$r->checked_in_at && $r->asset)
-        <a class="btn btn-xs btn-primary" href="{{ route('hardware.checkin.create', $r->asset->id) }}?return_id={{ $r->id }}">
-          Check In
-        </a>
-      @endif
-    </td>
+	  @if($canWarehouse && $r->received_at && !$r->checked_in_at && $r->asset)
+	    <a class="btn btn-xs btn-primary single-checkin-btn" href="{{ route('hardware.checkin.create', $r->asset->id) }}?return_id={{ $r->id }}">
+    Check-in
+</a>
+	  @endif
+	</td>
   </tr>
 @endforeach

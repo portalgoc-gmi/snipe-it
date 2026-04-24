@@ -20,6 +20,9 @@ use \Illuminate\Contracts\View\View;
 use Exception;
 use Illuminate\Support\Facades\Notification;
 
+use App\Models\ReturnRequest;
+use App\Notifications\ReturnStatusNotification;
+
 /**
  * This controller handles all actions related to the ability for users
  * to view their own assets in the Snipe-IT Asset Management application.
@@ -276,20 +279,99 @@ class ViewAssetsController extends Controller
      * @param null $assetId
      */
     public function store(Asset $asset): RedirectResponse
-    {
-        try {
-            CreateCheckoutRequestAction::run($asset, auth()->user());
-            return redirect()->route('requestable-assets')->with('success')->with('success', trans('admin/hardware/message.requests.success'));
-        } catch (AssetNotRequestable $e) {
-            return redirect()->back()->with('error', 'Asset is not requestable');
-        } catch (AuthorizationException $e) {
-            return redirect()->back()->with('error', trans('admin/hardware/message.requests.error'));
-        } catch (Exception $e) {
-            report($e);
-            return redirect()->back()->with('error', trans('general.something_went_wrong'));
-        }
-    }
+	{
+	    $user = auth()->user();
 
+	    if (!empty($user?->location_id) && (int) $asset->location_id === (int) $user->location_id) {
+		return redirect()->back()->with('error', 'This asset is already in your location.');
+	    }
+
+	    try {
+		CreateCheckoutRequestAction::run($asset, $user);
+		return redirect()->route('requestable-assets')->with('success')->with('success', trans('admin/hardware/message.requests.success'));
+	    } catch (AssetNotRequestable $e) {
+		return redirect()->back()->with('error', 'Asset is not requestable');
+	    } catch (AuthorizationException $e) {
+		return redirect()->back()->with('error', trans('admin/hardware/message.requests.error'));
+	    } catch (Exception $e) {
+		report($e);
+		return redirect()->back()->with('error', trans('general.something_went_wrong'));
+	    }
+	}
+    
+    public function bulkStore(Request $request): RedirectResponse
+	{
+	    $assetIds = $request->input('selected_assets', []);
+
+	    if (!is_array($assetIds) || count($assetIds) === 0) {
+		return redirect()->back()->with('error', 'Please select at least one asset.');
+	    }
+
+	    $assets = Asset::with('location')
+		->whereIn('id', $assetIds)
+		->get();
+
+	    if ($assets->isEmpty()) {
+		return redirect()->back()->with('error', 'No valid assets found.');
+	    }
+
+	    $locationIds = $assets->pluck('location_id')->filter()->unique()->values();
+
+	    if ($locationIds->count() !== 1) {
+		return redirect()->back()->with('error', 'All selected assets must have the same location.');
+	    }
+
+	    $settings = Setting::getSettings();
+	    $location = $assets->first()->location;
+	    $requester = auth()->user();
+	    $requestedCount = 0;
+
+	    foreach ($assets as $asset) {
+		    if (!empty($requester?->location_id) && (int) $asset->location_id === (int) $requester->location_id) {
+			continue;
+		    }
+
+		    try {
+			CreateCheckoutRequestAction::run($asset, $requester, false);
+			$requestedCount++;
+		    } catch (\Exception $e) {
+			report($e);
+		    }
+		}
+
+	    if (
+		$requestedCount > 0 &&
+		($settings->alert_email != '') &&
+		($settings->alerts_enabled == '1') &&
+		(!config('app.lock_passwords')) &&
+		$location
+	    ) {
+		$recipients = User::where('activated', 1)
+		    ->where('location_id', $location->id)
+		    ->where('id', '!=', $requester->id)
+		    ->get();
+
+		if ($recipients->isNotEmpty()) {
+		    $data = [
+			    'requester' => $requester,
+			    'target' => $requester,
+			    'item' => null,
+			    'item_type' => 'bulk',
+			    'item_quantity' => $requestedCount,
+			    'note' => '',
+			    'requested_date' => now(),
+			    'title' => $requestedCount . ' new asset requests',
+			    'message' => $requestedCount . ' new asset requests from ' . $requester->display_name,
+			    'item_name' => $requestedCount . ' assets',
+			];
+
+		    Notification::send($recipients, new RequestAssetNotification($data));
+		}
+	    }
+
+	    return redirect()->route('requestable-assets')->with('success', 'Requests created successfully.');
+	}
+    
     public function destroy(Asset $asset): RedirectResponse
     {
         try {
@@ -306,4 +388,86 @@ class ViewAssetsController extends Controller
     {
         return view('account/requested');
     }
+    
+    private function warehouseRecipients()
+	{
+	    return \App\Models\User::query()
+		->whereHas('groups', function ($g) {
+		    $g->whereIn('name', ['Warehouse keeper']);
+		})
+		->get();
+	}
+    
+    public function bulkReturnToArchive(Request $request): RedirectResponse
+	{
+	    $ids = $request->input('selected_assets', []);
+
+	    if (!is_array($ids) || count($ids) === 0) {
+		return redirect()->back()->with('error', 'Please select at least one asset.');
+	    }
+
+	    $assets = Asset::whereIn('id', $ids)->get();
+
+	    if ($assets->isEmpty()) {
+		return redirect()->back()->with('error', 'No valid assets found.');
+	    }
+
+	    $user = auth()->user();
+	    $createdCount = 0;
+	    $firstReturn = null;
+	    $firstAsset = null;
+
+	    foreach ($assets as $asset) {
+		if (empty($asset->can_pickup) || !empty($asset->open_return_id)) {
+		    continue;
+		}
+
+		$exists = ReturnRequest::where('asset_id', $asset->id)
+		    ->whereNull('canceled_at')
+		    ->whereNull('closed_at')
+		    ->exists();
+
+		if ($exists) {
+		    continue;
+		}
+
+		$return = ReturnRequest::create([
+		    'asset_id'      => $asset->id,
+		    'requested_by'  => $user?->id,
+		    'requested_at'  => now(),
+		    'in_transit_at' => now(),
+		]);
+		
+		$inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
+		if ($inTransitId) {
+		    $asset->status_id = $inTransitId;
+		    $asset->save();
+		}
+		
+		if (!$firstReturn) {
+		    $firstReturn = $return;
+		    $firstAsset = $asset;
+		}
+
+		$createdCount++;
+	    }
+
+	    if ($createdCount === 0) {
+		return redirect()->back()->with('error', 'No return requests were created.');
+	    }
+
+	    $recipients = $this->warehouseRecipients();
+
+	    if ($recipients->isNotEmpty() && $firstReturn && $firstAsset) {
+		Notification::send($recipients, new ReturnStatusNotification(
+		    'requested',
+		    $firstReturn,
+		    $firstAsset,
+		    $user,
+		    $createdCount
+		));
+	    }
+
+	    return redirect()->back()->with('success', $createdCount . ' return requests created successfully.');
+	}
 }

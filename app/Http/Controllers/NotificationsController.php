@@ -51,10 +51,10 @@ class NotificationsController extends Controller
 		$notifications = $notifications->unique(function ($n) {
 			$type = $n->data['type'] ?? 'other';
 
-			// acceptance_required: άστο όπως είναι (είναι “per notification”)
 			if ($type === 'acceptance_required') {
-				return $n->id;
+			    return $n->data['group_key'] ?? $n->id;
 			}
+			
 			if ($type === 'asset_declined_recheckout') {
 			    $assetId = $n->data['asset_id'] ?? null;
 			    return $type . '|' . ($assetId ?: 'none');
@@ -74,67 +74,79 @@ class NotificationsController extends Controller
 		$completed = [];
 
 		foreach ($notifications as $n) {
-			$type = $n->data['type'] ?? null;
+		    $type = $n->data['type'] ?? null;
 
-			if ($type === 'acceptance_required') {
-				if (is_null($n->read_at)) $pending[] = $n; else $completed[] = $n;
-				continue;
-			}
+		    if ($type === 'acceptance_required') {
+		    	if (is_null($n->read_at)) $pending[] = $n; else $completed[] = $n;
+		    	continue;
+		    }
 
-			if ($type === 'asset_request') {
-				$itemId = $n->data['item_id'] ?? null;
-
-				$stillPending = false;
-
-				if ($itemId) {
-					// 1) Αν το asset είναι ήδη σε χρήστη (checked-out), ΔΕΝ είναι pending για αποθήκη
-					$asset = Asset::find($itemId);
-					if ($asset && !empty($asset->assigned_to)) {
-						$stillPending = false;
-					} else {
-						// 2) Κοίτα το πιο πρόσφατο request για αυτό το asset
-						$req = CheckoutRequest::where('requestable_type', Asset::class)
-							->where('requestable_id', $itemId)
-							->whereNull('canceled_at')
-							->latest()
-							->first();
-
-						if ($req) {
-							// Default: pending
-							$stillPending = true;
-
-							// Αν υπάρχουν columns και έχουν γεμίσει -> completed
-							if (Schema::hasColumn('checkout_requests', 'fulfilled_at') && !is_null($req->fulfilled_at)) {
-								$stillPending = false;
-							}
-							if (Schema::hasColumn('checkout_requests', 'checked_out_at') && !is_null($req->checked_out_at)) {
-								$stillPending = false;
-							}
-							if (Schema::hasColumn('checkout_requests', 'status') && ($req->status !== 'pending')) {
-								$stillPending = false;
-							}
-						}
-					}
-				}
-
-				if ($stillPending) $pending[] = $n;
-				else $completed[] = $n;
-
-				continue;
-			}
-
-
-			if ($type === 'asset_request_canceled') {
-				if (is_null($n->read_at)) $pending[] = $n; else $completed[] = $n;
-				continue;
-			}
-
-			if (in_array($type, ['return_requested','return_in_transit','return_received'], true)) {
-				if (is_null($n->read_at)) $pending[] = $n; else $completed[] = $n;
-				continue;
-			}
-
+		    if ($type === 'asset_request_bulk') {
 			if (is_null($n->read_at)) $pending[] = $n; else $completed[] = $n;
+			continue;
+		    }
+
+		    if ($type === 'asset_request') {
+			$hasUnreadBulk = $notifications->contains(function ($x) use ($n) {
+			    return ($x->data['type'] ?? null) === 'asset_request_bulk'
+				&& is_null($x->read_at)
+				&& (($x->data['requested_by_id'] ?? null) === ($n->data['requested_by_id'] ?? null));
+			});
+
+			if ($hasUnreadBulk) {
+			    continue;
+			}
+
+			$itemId = $n->data['item_id'] ?? null;
+			$stillPending = false;
+
+			if ($itemId) {
+			    $asset = Asset::find($itemId);
+
+			    if ($asset && !empty($asset->assigned_to)) {
+				$stillPending = false;
+			    } else {
+				$req = CheckoutRequest::where('requestable_type', Asset::class)
+				    ->where('requestable_id', $itemId)
+				    ->whereNull('canceled_at')
+				    ->latest()
+				    ->first();
+
+				if ($req) {
+				    $stillPending = true;
+
+				    if (Schema::hasColumn('checkout_requests', 'fulfilled_at') && !is_null($req->fulfilled_at)) {
+				        $stillPending = false;
+				    }
+
+				    if (Schema::hasColumn('checkout_requests', 'checked_out_at') && !is_null($req->checked_out_at)) {
+				        $stillPending = false;
+				    }
+
+				    if (Schema::hasColumn('checkout_requests', 'status') && ($req->status !== 'pending')) {
+				        $stillPending = false;
+				    }
+				}
+			    }
+			}
+
+			if ($stillPending) $pending[] = $n;
+			else $completed[] = $n;
+
+			continue;
+		    }
+
+		    if ($type === 'asset_request_canceled') {
+			if (is_null($n->read_at)) $pending[] = $n; else $completed[] = $n;
+			continue;
+		    }
+
+		    if (in_array($type, ['return_requested', 'return_in_transit', 'return_received'], true)) {
+			if (is_null($n->read_at)) $pending[] = $n; else $completed[] = $n;
+			continue;
+		    }
+
+		    if (is_null($n->read_at)) $pending[] = $n; else $completed[] = $n;
 		}
 
 		return view('notifications.index', [
@@ -167,6 +179,7 @@ class NotificationsController extends Controller
 
         if ($type === 'acceptance_required') return redirect('/account/accept');
         if ($type === 'asset_request') return redirect('/hardware/requested');
+        if ($type === 'asset_request_bulk') return redirect('/hardware/requested');
         if ($type === 'asset_request_canceled') return redirect('/hardware/requested');
         if (in_array($type, ['return_requested', 'return_in_transit', 'return_received'], true)) return redirect('/returns');
         if ($type === 'asset_declined_recheckout') return redirect('/hardware/requested');

@@ -140,7 +140,7 @@ class AcceptanceController extends Controller
             Storage::makeDirectory('private_uploads/eula-pdfs', 775);
         }
 
-        $item = $acceptance->checkoutable_type::find($acceptance->checkoutable_id);
+        $item = $acceptance->checkoutable;
 
         // If signatures are required, make sure we have one
         if (Setting::getSettings()->require_accept_signature == '1') {
@@ -246,55 +246,65 @@ class AcceptanceController extends Controller
         	for ($i = 0; $i < ($acceptance->qty ?? 1); $i++) {
 			$acceptance->decline($sig_filename, $request->input('note'));
 		    }
-
+		    
 		    if ($acceptance->checkoutable_type === \App\Models\Asset::class) {
-			$inTransitId = Statuslabel::where('name', 'In Transit')->value('id');
+		    $previousStatusId = null;
 
-			if ($inTransitId) {
-			    $item->status_id = $inTransitId;
-			}
-
-			// γύρνα το location πίσω στο default / previous holding place
-			if (!empty($item->rtd_location_id)) {
-			    $item->location_id = $item->rtd_location_id;
-			}
-
-			$item->save();
-			
-			$sender = null;
-
-			$lastCheckoutLog = $item->assetlog()
-			    ->where('action_type', 'checkout')
-			    ->latest('id')
-			    ->first();
-
-			if ($lastCheckoutLog && !empty($lastCheckoutLog->created_by)) {
-			    $sender = User::find($lastCheckoutLog->created_by);
-			}
-			
-			if ($sender) {
-			    $sender->unreadNotifications()
-				->where('data->type', 'asset_declined_recheckout')
-				->where('data->asset_id', $item->id)
-				->update(['read_at' => now()]);
-
-			    $sender->unreadNotifications()
-				->where('data->type', 'asset_request')
-				->where('data->item_id', $item->id)
-				->update(['read_at' => now()]);
-
-			    $sender->notify(new AssetDeclinedForRecheckoutNotification([
-				'asset_id' => $item->id,
-				'asset_tag' => $item->asset_tag,
-				'asset_name' => $item->name ?? $item->display_name,
-				'declined_by' => auth()->user()?->display_name,
-				'note' => $request->input('note'),
-				'message' => 'The user declined receiving this file. Please checkout it again.',
-			    ]));
-			}
-
-			
+		    if (!empty($item->notes) && preg_match('/PREVIOUS_STATUS_ID:(\d+)/', $item->notes, $matches)) {
+			$previousStatusId = $matches[1] ?? null;
 		    }
+
+		    if (!empty($previousStatusId)) {
+			$item->status_id = (int) $previousStatusId;
+		    } else {
+			$returnedToDeptId = Statuslabel::where('name', 'Returned to Department')->value('id');
+			if ($returnedToDeptId) {
+			    $item->status_id = $returnedToDeptId;
+			}
+		    }
+
+		    if (!empty($item->rtd_location_id)) {
+			$item->location_id = $item->rtd_location_id;
+		    }
+
+		    if (!empty($item->notes)) {
+			$item->notes = preg_replace('/\n?PREVIOUS_STATUS_ID:\d+/', '', $item->notes);
+			$item->notes = trim($item->notes);
+		    }
+
+		    $item->save();
+
+		    $sender = null;
+		    $lastCheckoutLog = $item->assetlog()
+			->where('action_type', 'checkout')
+			->latest('id')
+			->first();
+
+		    if ($lastCheckoutLog && !empty($lastCheckoutLog->created_by)) {
+			$sender = User::find($lastCheckoutLog->created_by);
+		    }
+
+		    if ($sender) {
+			$sender->unreadNotifications()
+			    ->where('data->type', 'asset_declined_recheckout')
+			    ->where('data->asset_id', $item->id)
+			    ->update(['read_at' => now()]);
+
+			$sender->unreadNotifications()
+			    ->where('data->type', 'asset_request')
+			    ->where('data->item_id', $item->id)
+			    ->update(['read_at' => now()]);
+
+			$sender->notify(new AssetDeclinedForRecheckoutNotification([
+			    'asset_id' => $item->id,
+			    'asset_tag' => $item->asset_tag,
+			    'asset_name' => $item->name ?? $item->display_name,
+			    'declined_by' => auth()->user()?->display_name,
+			    'note' => $request->input('note'),
+			    'message' => 'The user declined receiving this file. Please checkout it again.',
+			]));
+		    }
+		}
 
 		    /*
 		    $acceptance->notify(new AcceptanceItemDeclinedNotification($data));
@@ -342,7 +352,107 @@ class AcceptanceController extends Controller
         return redirect()->to('account/accept')->with('success', $return_msg);
 
     }
+    
+    
+    public function bulkAccept(Request $request) : RedirectResponse
+{
+    $ids = $request->input('selected_acceptances', []);
 
+    if (!is_array($ids) || count($ids) === 0) {
+        return redirect()->route('account.accept')->with('error', 'No items selected.');
+    }
+
+    if (Setting::getSettings()->require_accept_signature == '1') {
+        return redirect()->route('account.accept')->with('error', 'Bulk accept is not available while signature is required.');
+    }
+
+    $user = auth()->user();
+
+    $acceptances = CheckoutAcceptance::pending()
+        ->whereIn('id', $ids)
+        ->whereHasMorph('checkoutable', [\App\Models\Asset::class], function ($query) use ($user) {
+            $query->where('location_id', $user->location_id);
+        })
+        ->get();
+
+    if ($acceptances->isEmpty()) {
+        return redirect()->route('account.accept')->with('error', 'No valid acceptances found.');
+    }
+
+    if ($acceptances->count() !== count($ids)) {
+        return redirect()->route('account.accept')->with('error', 'Some selected items are invalid.');
+    }
+
+    $errors = [];
+
+    foreach ($acceptances as $acceptance) {
+        if (! $acceptance->isPending()) {
+            $errors[] = 'Item already processed.';
+            continue;
+        }
+
+        if (
+            $acceptance->checkoutable_type === \App\Models\Asset::class &&
+            $acceptance->checkoutable &&
+            $acceptance->checkoutable->location_id !== $user->location_id
+        ) {
+            $errors[] = 'One item belongs to another location.';
+            continue;
+        }
+
+        if (! Company::isCurrentUserHasAccess($acceptance->checkoutable)) {
+            $errors[] = 'Insufficient permissions for one selected item.';
+            continue;
+        }
+
+        $item = $acceptance->checkoutable;
+
+        if (!$item) {
+            $errors[] = 'Missing item.';
+            continue;
+        }
+
+        try {
+            if ($acceptance->checkoutable_type === \App\Models\Asset::class) {
+                $withDeptId = Statuslabel::where('name', 'With Department')->value('id');
+
+                if ($withDeptId) {
+                    $item->status_id = $withDeptId;
+                }
+
+                if ($user->location_id) {
+                    $item->location_id = $user->location_id;
+                }
+
+                $item->save();
+            }
+
+            $acceptance->accept('', $item->getEula(), null, 'Bulk accepted');
+            event(new CheckoutAccepted($acceptance));
+
+            $user->unreadNotifications()
+                ->where('data->type', 'acceptance_required')
+                ->where(function ($q) use ($item) {
+                    $q->where('data->item_id', $item->id);
+
+                    if (!empty($item->asset_tag)) {
+                        $q->orWhere('data->item_tag', $item->asset_tag);
+                    }
+                })
+                ->update(['read_at' => now()]);
+
+        } catch (\Throwable $e) {
+            report($e);
+            $errors[] = 'Failed to accept item ID '.$acceptance->id;
+        }
+    }
+
+    if (!empty($errors)) {
+        return redirect()->route('account.accept')->with('error', implode(' | ', $errors));
+    }
+
+    return redirect()->route('account.accept')->with('success', 'Selected items accepted successfully.');
+}
 
 
 }

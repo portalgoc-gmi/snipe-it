@@ -36,6 +36,7 @@ use TypeError;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Schema;
 
+
 /**
  * This class controls all actions related to assets for
  * the Snipe-IT Asset Management application.
@@ -1125,5 +1126,162 @@ class AssetsController extends Controller
 	    $requestedItems = $query->orderByDesc('created_at')->get();
 
 	    return view('hardware/requested', compact('requestedItems'));
+	}
+	
+	public function bulkCheckoutRequested(Request $request)
+	{
+	    $ids = $request->input('selected_requests', []);
+
+	    if (!is_array($ids) || count($ids) === 0) {
+		return back()->with('error', 'No requests selected');
+	    }
+
+	    $requests = CheckoutRequest::with(['user'])
+		->whereIn('id', $ids)
+		->whereNull('canceled_at')
+		->where('requestable_type', Asset::class)
+		->get();
+
+	    if ($requests->isEmpty()) {
+		return back()->with('error', 'No valid requests found');
+	    }
+
+	    if ($requests->count() !== count($ids)) {
+		return back()->with('error', 'Some selected requests are invalid');
+	    }
+
+	    $userIds = $requests->pluck('user_id')->filter()->unique()->values();
+	    if ($userIds->count() !== 1) {
+		return back()->with('error', 'You can only bulk checkout requests for the same user');
+	    }
+
+	    $targetUser = $requests->first()->user;
+	    if (!$targetUser) {
+		return back()->with('error', 'Requesting user not found');
+	    }
+
+	    $groupKey = 'accept_' . now()->timestamp . '_' . $targetUser->id;
+	    $total = $requests->count();
+	    $errors = [];
+	    $checkedOutAssetIds = [];
+	    $checkedOutAssetTags = [];
+
+	    foreach ($requests as $checkoutRequest) {
+		    $asset = Asset::find($checkoutRequest->requestable_id);
+
+		    if (!$asset) {
+			$errors[] = 'Missing asset for request ID ' . $checkoutRequest->id;
+			continue;
+		    }
+
+		    try {
+			$admin = auth()->user();
+			
+			$canBulkCheckout = $admin && (
+			    $admin->hasAccess('admin') ||
+			    $admin->hasAccess('superadmin') ||
+			    (method_exists($admin, 'isSuperUser') && $admin->isSuperUser()) ||
+			    $admin->groups()->whereIn('name', ['Warehouse keeper', 'Warehouse', 'Archivist'])->exists() ||
+			    (int) $asset->assigned_to === (int) $admin->id ||
+			    ((int) ($asset->location_id ?? 0) === (int) ($admin->location_id ?? 0))
+			);
+
+			if (!$canBulkCheckout) {
+			    abort(403);
+			}
+			
+			
+			$checkout_at = date('Y-m-d H:i:s');
+			$expected_checkin = '';
+
+			if ($targetUser->location_id) {
+			    $asset->location_id = $targetUser->location_id;
+			}
+
+			$inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
+			if ($inTransitId) {
+			    $asset->status_id = $inTransitId;
+			}
+
+			if (!$asset->availableForCheckout()) {
+			    $asset->assignedTo()->disassociate();
+			    $asset->accepted = null;
+			    $asset->expected_checkin = null;
+			    $asset->save();
+			}
+
+			$success = $asset->checkOut(
+			    $targetUser,
+			    $admin,
+			    $checkout_at,
+			    $expected_checkin,
+			    'Bulk checkout from requested assets',
+			    $asset->name
+			);
+
+			if (!$success) {
+			    $errors[] = 'Failed to checkout asset ' . $asset->asset_tag;
+			    continue;
+			}
+
+			$checkedOutAssetIds[] = $asset->id;
+			$checkedOutAssetTags[] = $asset->asset_tag;
+
+			$checkoutRequest->fulfilled_at = now();
+			$checkoutRequest->save();
+
+		    } catch (\Throwable $e) {
+			report($e);
+			$errors[] = 'Failed to checkout asset ' . $asset->asset_tag;
+		    }
+		}
+
+	    if (!empty($checkedOutAssetIds)) {
+		    $cutoff = now()->subMinutes(2);
+
+		    $targetUser->notifications()
+			->where('created_at', '>=', $cutoff)
+			->get()
+			->filter(function ($n) use ($checkedOutAssetIds, $groupKey) {
+			    $type = $n->data['type'] ?? null;
+			    $itemId = $n->data['item_id'] ?? null;
+			    $url = $n->data['url'] ?? null;
+			    $notificationGroupKey = $n->data['group_key'] ?? null;
+			    $groupCount = (int) ($n->data['group_count'] ?? 1);
+
+			    // μην πειράξεις τη grouped που θα κρατήσουμε
+			    if ($notificationGroupKey === $groupKey) {
+				return false;
+			    }
+
+			    // σβήσε μόνο τις φρέσκες ατομικές acceptance ειδοποιήσεις
+			    return (
+				in_array($type, ['acceptance_required', 'asset_acceptance'], true)
+				|| $url === url('/account/accept')
+			    )
+			    && $groupCount <= 1
+			    && (
+				in_array($itemId, $checkedOutAssetIds)
+				|| is_null($itemId)
+			    );
+			})
+			->each(function ($n) {
+			    $n->delete();
+			});
+
+		    $targetUser->notify(new \App\Notifications\AcceptanceAssetPendingNotification([
+			'assigned_to' => $targetUser->name,
+			'item_tag'    => implode(', ', $checkedOutAssetTags),
+			'item_id'     => $checkedOutAssetIds[0],
+			'group_key'   => $groupKey,
+			'group_count' => count($checkedOutAssetIds),
+		    ]));
+		}
+
+	    if (!empty($errors)) {
+		return back()->with('error', implode(' | ', $errors));
+	    }
+
+	    return back()->with('success', 'Bulk checkout completed successfully');
 	}
 }

@@ -428,6 +428,8 @@
           </div><!-- /.tab-pane -->
 
           <div class="tab-pane" id="assets">
+
+    		
             <!-- checked out assets table -->
 
             <table
@@ -445,14 +447,24 @@
                   }'>
 
                     <caption id="userAssetToolbar" class="tableCaption">
-                      {{ trans('general.assets') }}
-                    </caption>
+			    <div>{{ trans('general.assets') }}</div>
+
+			    <form method="POST" action="{{ route('account.assets.bulk-return') }}" id="bulkReturnForm" style="margin-top: 10px;">
+				@csrf
+				<button type="submit" class="btn btn-warning" id="bulkReturnSelectedBtn">
+				    Return Selected to Archive
+				</button>
+			    </form>
+			</caption>
 
                     <thead>
                     <tr>
                       <th class="col-md-1">
-                        #
-                      </th>
+    			<input type="checkbox" id="checkAllAssignedAssets">
+  		        </th>
+ 			<th class="col-md-1">
+ 				#
+ 			</th>
                       <th>
                         {{ trans('general.image') }}
                       </th>
@@ -520,7 +532,18 @@
                     @endphp
                     @foreach ($user->assets as $asset)
                       <tr>
-                        <td>{{ $counter }}</td>
+			  <td>
+			    @if(!empty($asset->can_pickup) && empty($asset->open_return_id))
+			      <input
+				    type="checkbox"
+				    class="assigned-asset-check"
+				    name="selected_assets[]"
+				    value="{{ $asset->id }}"
+				    form="bulkReturnForm"
+				>
+			    @endif
+			  </td>
+			  <td>{{ $counter }}</td>
                         <td>
                           @if (($asset->image) && ($asset->image!=''))
                             <img src="{{ Storage::disk('public')->url(app('assets_upload_path').e($asset->image)) }}" style="max-height: 30px; width: auto" class="img-responsive" alt="">
@@ -555,19 +578,31 @@
                         </td>
                         
                         <td class="hidden-print">
+			    @php
+				$openReturn = \App\Models\ReturnRequest::where('asset_id', $asset->id)
+				    ->whereNull('canceled_at')
+				    ->whereNull('closed_at')
+				    ->latest('requested_at')
+				    ->first();
+			    @endphp
+
 			    @if(!empty($asset->can_pickup))
-				@if(empty($asset->open_return_id))
+				@if(!$openReturn)
 				    <form method="POST" action="{{ route('returns.store', $asset->id) }}" style="display:inline;">
 					@csrf
-					<button type="submit" class="btn btn-xs btn-warning">Return to Archive</button>
+					<button type="submit" class="btn btn-xs btn-warning single-return-btn">Return to Archive</button>
 				    </form>
-				@elseif(!empty($asset->open_return_in_transit_at))
+				@elseif(!empty($openReturn->received_at))
+				    <span class="label label-success">
+					Received by Warehouse
+				    </span>
+				@elseif(!empty($openReturn->in_transit_at))
 				    <span class="label label-info">
 					In Transit
 				    </span>
 				@else
-				    <span class="label label-warning" style="background-color:#f39c12 !important;">
-					Return Requested
+				    <span class="label label-warning">
+					<i class="fas fa-clock"></i> Return Requested
 				    </span>
 				@endif
 			    @endif
@@ -618,6 +653,7 @@
                     @endforeach
                     </tbody>
                   </table>
+                  
           </div><!-- /asset -->
 
 
@@ -819,4 +855,77 @@
 
 @section('moar_scripts')
   @include ('partials.bootstrap-table')
+
+  <script nonce="{{ csrf_token() }}">
+    function syncAssignedHeaderCheckbox() {
+        let all = document.querySelectorAll('.assigned-asset-check');
+        let checked = document.querySelectorAll('.assigned-asset-check:checked');
+        let header = document.getElementById('checkAllAssignedAssets');
+
+        if (!header) return;
+
+        if (all.length === 0) {
+            header.checked = false;
+            header.indeterminate = false;
+            return;
+        }
+
+        header.checked = all.length === checked.length;
+        header.indeterminate = checked.length > 0 && checked.length < all.length;
+    }
+
+    function toggleSingleReturnButtons() {
+        let selectedCount = document.querySelectorAll('.assigned-asset-check:checked').length;
+        let disableSingles = selectedCount >= 1;
+
+        document.querySelectorAll('.single-return-btn').forEach(function(btn) {
+            if (disableSingles) {
+                btn.classList.add('disabled');
+                btn.disabled = true;
+                btn.style.pointerEvents = 'none';
+                btn.style.opacity = '0.5';
+            } else {
+                btn.classList.remove('disabled');
+                btn.disabled = false;
+                btn.style.pointerEvents = '';
+                btn.style.opacity = '';
+            }
+        });
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'checkAllAssignedAssets') {
+            let checked = e.target.checked;
+
+            document.querySelectorAll('.assigned-asset-check').forEach(function(cb) {
+                cb.checked = checked;
+            });
+
+            syncAssignedHeaderCheckbox();
+            toggleSingleReturnButtons();
+        }
+
+        if (e.target && e.target.matches('.assigned-asset-check')) {
+            syncAssignedHeaderCheckbox();
+            toggleSingleReturnButtons();
+        }
+    });
+
+    document.addEventListener('submit', function(e) {
+        if (e.target && e.target.id === 'bulkReturnForm') {
+            let checked = document.querySelectorAll('.assigned-asset-check:checked');
+
+            if (checked.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one asset.');
+                return false;
+            }
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        syncAssignedHeaderCheckbox();
+        toggleSingleReturnButtons();
+    });
+  </script>
 @stop

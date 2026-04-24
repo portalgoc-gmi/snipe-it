@@ -19,7 +19,7 @@ class CreateCheckoutRequestAction
      * @throws AssetNotRequestable
      * @throws AuthorizationException
      */
-    public static function run(Asset $asset, User $user): string
+    public static function run(Asset $asset, User $user, bool $sendNotification = true): string
     {
         if (is_null(Asset::RequestableAssets()->find($asset->id))) {
             throw new AssetNotRequestable($asset);
@@ -47,26 +47,24 @@ class CreateCheckoutRequestAction
         $asset->request();
         $asset->increment('requests_counter', 1);
         
-        try {
+        if ($sendNotification) {
+	    try {
+		$asset->loadMissing('location');
+		$locationId = $asset->location->id ?? null;
 
-	    $asset->loadMissing('location');
-	    $locationId = $asset->location->id ?? null;
+		if ($locationId) {
+		    $recipients = User::where('activated', 1)
+		        ->where('location_id', $locationId)
+		        ->where('id', '!=', $requester->id)
+		        ->get();
 
-	    if ($locationId) {
-
-		$recipients = User::where('activated', 1)
-		    ->where('location_id', $locationId)
-		    ->where('id', '!=', $requester->id)
-		    ->get();
-
-		Notification::send($recipients, new RequestAssetNotification($data));
-
-	    } else {
-		Log::warning("No location found for asset {$asset->id}");
+		    Notification::send($recipients, new RequestAssetNotification($data));
+		} else {
+		    Log::warning("No location found for asset {$asset->id}");
+		}
+	    } catch (\Exception $e) {
+		Log::warning($e);
 	    }
-
-	} catch (\Exception $e) {
-	    Log::warning($e);
 	}
 
         return true;

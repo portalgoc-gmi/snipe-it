@@ -49,6 +49,11 @@
                 <div class="tab-pane fade in active" id="assets">
                     <div class="row">
                         <div class="col-md-12">
+                        <div id="requestBulkToolbar" style="margin-bottom: 15px;">
+			    <button type="button" id="bulkRequestBtn" class="btn btn-primary">
+				Request Selected
+			    </button>
+			</div>
                             <table
                                 data-cookie-id-table="requestableAssetsListingTable"
                                 data-id-table="requestableAssetsListingTable"
@@ -57,7 +62,7 @@
                                 data-show-footer="false"
                                 data-sort-order="asc"
                                 data-sort-name="name"
-                                data-toolbar="#assetsBulkEditToolbar"
+                                data-toolbar="#requestBulkToolbar"
                                 data-bulk-button-id="#bulkAssetEditButton"
                                 data-bulk-form-id="#assetsBulkForm"
                                 id="assetsListingTable"
@@ -66,6 +71,8 @@
 
                                 <thead>
                                     <tr>
+                                    	<th data-field="state" data-checkbox="true"></th>
+
                                         <th class="col-md-1" data-field="image" data-formatter="imageFormatter" data-sortable="true">{{ trans('general.image') }}</th>
                                         <th class="col-md-2" data-field="asset_tag" data-sortable="true" >{{ trans('general.asset_tag') }}</th>
                                         <th class="col-md-2" data-field="model" data-sortable="true">{{ trans('admin/hardware/table.asset_model') }}</th>
@@ -166,6 +173,7 @@
 
 
 @section('moar_scripts')
+
     @include ('partials.bootstrap-table', [
         'exportFile' => 'requested-export',
         'search' => true,
@@ -183,6 +191,87 @@
         // alert($(this).attr('href'));
     });
 </script>
+
+<script nonce="{{ csrf_token() }}">
+    $('#bulkRequestBtn').on('click', function () {
+        let rows = $('#assetsListingTable').bootstrapTable('getSelections');
+
+        if (!rows.length) {
+            alert('Please select at least one asset.');
+            return;
+        }
+
+        let ids = rows.map(r => r.id);
+        let form = $('<form>', {
+            method: 'POST',
+            action: "{{ route('account.request-assets.bulk') }}"
+        });
+
+        form.append($('<input>', {
+            type: 'hidden',
+            name: '_token',
+            value: "{{ csrf_token() }}"
+        }));
+
+        ids.forEach(function(id) {
+            form.append($('<input>', {
+                type: 'hidden',
+                name: 'selected_assets[]',
+                value: id
+            }));
+        });
+
+        $('body').append(form);
+        form.submit();
+    });
+</script>
+
+<script nonce="{{ csrf_token() }}">
+    function toggleSingleRequestButtons() {
+        let rows = $('#assetsListingTable').bootstrapTable('getSelections');
+        let disableSingle = rows.length >= 1;
+
+        $('#assetsListingTable tbody tr').each(function () {
+            let $row = $(this);
+            let isSelected = $row.find('input[type="checkbox"]').is(':checked');
+            let $requestBtn = $row.find('.btn').filter(function () {
+                return ($(this).text() || '').trim().toLowerCase() === 'request';
+            });
+
+            if (!$requestBtn.length) {
+                return;
+            }
+
+            if (disableSingle) {
+                $requestBtn.prop('disabled', true)
+                    .addClass('disabled')
+                    .css({
+                        'pointer-events': 'none',
+                        'opacity': '0.6'
+                    });
+            } else {
+                $requestBtn.prop('disabled', false)
+                    .removeClass('disabled')
+                    .css({
+                        'pointer-events': '',
+                        'opacity': ''
+                    });
+            }
+        });
+    }
+
+    $('#assetsListingTable').on(
+        'check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table load-success.bs.table',
+        function () {
+            setTimeout(toggleSingleRequestButtons, 50);
+        }
+    );
+
+    $(document).ready(function () {
+        setTimeout(toggleSingleRequestButtons, 300);
+    });
+</script>
+
 @stop
 
 

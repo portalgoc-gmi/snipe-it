@@ -1,7 +1,6 @@
 <li class="dropdown notifications-menu" id="notifications-menu">
     <a href="#" class="dropdown-toggle" data-toggle="dropdown">
         <i class="far fa-bell"></i>
-
         <span
             class="label label-danger"
             id="notifications-count"
@@ -19,11 +18,19 @@
             <ul class="menu" id="notifications-list">
                 @foreach(auth()->user()->unreadNotifications()->take(5)->get() as $notification)
                     <li>
-                        <a href="{{ route('notifications.open', $notification->id) }}">
-                            <strong>{{ $notification->data['title'] ?? 'Notification' }}</strong><br>
-                            {{ $notification->data['item_name'] ?? 'Asset' }}<br>
-                            <small>{{ $notification->data['requested_by'] ?? 'User' }}</small>
-                        </a>
+                        @if (($notification->data['type'] ?? null) !== 'asset_declined_recheckout')
+                            <a href="{{ route('notifications.open', $notification->id) }}">
+                                <strong>{{ $notification->data['title'] ?? 'Notification' }}</strong><br>
+                                {{ $notification->data['item_name'] ?? 'Asset' }}<br>
+                                <small>{{ $notification->data['requested_by'] ?? 'User' }}</small>
+                            </a>
+                        @else
+                            <div style="padding: 10px 15px;">
+                                <strong>{{ $notification->data['title'] ?? 'Notification' }}</strong><br>
+                                {{ $notification->data['message'] ?? ($notification->data['item_name'] ?? 'Asset') }}<br>
+                                <small>{{ $notification->data['declined_by'] ?? 'User' }}</small>
+                            </div>
+                        @endif
                     </li>
                 @endforeach
             </ul>
@@ -33,6 +40,7 @@
         </li>
     </ul>
 </li>
+    
 
 <script>
 function loadNotificationsMenu() {

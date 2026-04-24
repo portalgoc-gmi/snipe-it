@@ -60,7 +60,9 @@ Notifications
           <br><br>
         @endif
 
-        <a class="btn btn-xs btn-primary" href="{{ $openUrl }}">Open</a>
+        @if (($notification->data['type'] ?? null) !== 'asset_declined_recheckout')
+	    <a class="btn btn-xs btn-primary" href="{{ $openUrl }}">Open</a>
+	@endif
 
         @if (is_null($notification->read_at))
           <form method="POST" action="{{ route('notifications.read', $notification->id) }}" style="display:inline;">
@@ -119,7 +121,9 @@ Notifications
 
         <br><br>
 
-        <a class="btn btn-xs btn-primary" href="{{ $openUrl }}">Open</a>
+        @if (($notification->data['type'] ?? null) !== 'asset_declined_recheckout')
+	    <a class="btn btn-xs btn-primary" href="{{ $openUrl }}">Open</a>
+	@endif
 
         @if (is_null($notification->read_at))
           <form method="POST" action="{{ route('notifications.read', $notification->id) }}" style="display:inline;">

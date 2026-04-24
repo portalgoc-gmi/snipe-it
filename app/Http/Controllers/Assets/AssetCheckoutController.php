@@ -154,13 +154,24 @@ public function create(Asset $asset) : View | RedirectResponse
                 $expected_checkin = $request->input('expected_checkin');
             }
 
-            $inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
-            
-            if ($inTransitId) {
-	   	$asset->status_id = $inTransitId;
-	    } elseif ($request->filled('status_id')) {
-	        $asset->status_id = $request->input('status_id');
-	    }
+            $previousStatusId = $asset->status_id;
+
+		$inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
+		if ($inTransitId) {
+		    if (empty($asset->notes)) {
+			$asset->notes = '';
+		    }
+
+		    $asset->notes = preg_replace('/\n?PREVIOUS_STATUS_ID:\d+/', '', $asset->notes);
+		    $asset->notes = trim($asset->notes . "\nPREVIOUS_STATUS_ID:" . $previousStatusId);
+
+		    $asset->status_id = $inTransitId;
+		} elseif ($request->filled('status_id')) {
+		    $asset->status_id = $request->input('status_id');
+		}
+
+		$asset->saveQuietly();
+		$asset->refresh();
 
             if(!empty($asset->licenseseats->all())){
                 if(request('checkout_to_type') == 'user') {

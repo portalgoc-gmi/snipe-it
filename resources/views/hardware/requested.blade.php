@@ -5,127 +5,102 @@
   {{ trans('general.assets') }}
 @stop
 
-{{-- Page title --}}
 @section('title')
     @yield('title0')  @parent
 @stop
 
-{{-- Page content --}}
 @section('content')
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-default">
+            <div class="box-body">
+                <div class="row">
+                    <div class="col-md-12">
 
-<div class="row"><!-- .row -->
-    <div class="col-md-12"><!-- .col-md-12 -->
-        <div class="box box-default"><!-- .box -->
-            <div class="box-body"><!-- .bow-body -->
-                <div class="row"><!-- .row -->
-                    <div class="col-md-12"><!-- col-md-12 -->
-
+                        <div id="requestedBulkToolbar" style="margin-bottom: 15px;">
+			    <button type="submit" id="bulkCheckoutRequestedBtn" class="btn btn-success" form="bulkCheckoutForm">
+				Checkout Selected
+			    </button>
+			</div>
+                        
+                        <form method="POST" action="{{ route('hardware.requested.bulk-checkout') }}" id="bulkCheckoutForm">
+    			{{ csrf_field() }}
+    			
                         <table
-                            data-toolbar="#toolbar"
+                            data-toolbar="#requestedBulkToolbar"
                             class="table table-striped snipe-table"
                             id="requestedAssets"
                             data-id-table="requestedAssets"
                             data-cookie-id-table="requestedAssets"
                             data-export-options='{
-                            "fileName": "export-assetrequests-{{ date('Y-m-d') }}",
-                            "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                        }'>
+                                "fileName": "export-assetrequests-{{ date('Y-m-d') }}",
+                                "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
+                            }'>
+
                             <thead>
                                 <tr role="row">
+                                    <th class="col-md-1">
+					<input type="checkbox" id="checkAllRequested">
+			            </th>
                                     <th class="col-md-1">{{ trans('general.image') }}</th>
                                     <th class="col-md-2">{{ trans('general.name') }}</th>
-                                    <th class="col-md-2" data-sortable="true">{{ trans('admin/hardware/table.location') }}</th>
-                                    <th class="col-md-2" data-sortable="true">{{ trans('admin/hardware/form.expected_checkin') }}</th>
-                                    <th class="col-md-3" data-sortable="true">{{ trans('admin/hardware/table.requesting_user') }}</th>
+                                    <th class="col-md-2">{{ trans('admin/hardware/table.location') }}</th>
+                                    <th class="col-md-2">{{ trans('admin/hardware/form.expected_checkin') }}</th>
+                                    <th class="col-md-3">{{ trans('admin/hardware/table.requesting_user') }}</th>
                                     <th class="col-md-2">{{ trans('admin/hardware/table.requested_date') }}</th>
                                     <th class="col-md-1">{{ trans('button.actions') }}</th>
                                     <th class="col-md-1">{{ trans('general.checkout') }}</th>
                                 </tr>
                             </thead>
+
                             <tbody>
-				@foreach ($requestedItems as $request)
-				@if (!$request->requestable)
-				@continue
-				@endif
-				
-				@php
-				$me = auth()->user();
-				$reqUser = $request->requestingUser();
+                                @foreach ($requestedItems as $request)
+                                    @if (!$request->requestable)
+                                        @continue
+                                    @endif
 
-				if ($reqUser && $me && (int)$reqUser->id === (int)$me->id) {
-				    $skip = true;
-				} else {
-				    $skip = false;
-				}
+                                    @php
+                                        $reqUser = $request->requestingUser();
+                                    @endphp
 
-				$asset = $request->requestable;
+                                    <tr data-request-id="{{ $request->id }}">
+                                        
+					<td>
+					    <input type="checkbox" class="requested-check" name="selected_requests[]" value="{{ $request->id }}">
+					</td>
 
-				$assignedType = $asset->assigned_to_type ?? ($asset->assigned_type ?? null);
-				$assignedId   = (int)($asset->assigned_to ?? 0);
+                                        <td></td>
+                                        <td>{{ $request->requestable->name ?? '' }}</td>
+                                        <td>{{ $request->location()->name ?? '' }}</td>
+                                        <td>{{ $request->expected_checkin ?? '' }}</td>
+                                        <td>{{ $reqUser->name ?? '' }}</td>
+                                        <td>{{ $request->created_at }}</td>
 
-				$myUserId     = (int)($me->id ?? 0);
-				$myLocationId = (int)($me->location_id ?? 0);
+                                        <td>
+                                            <a href="/hardware/{{ $request->requestable->id }}" class="btn btn-sm btn-info">
+                                                View
+                                            </a>
+                                        </td>
 
-				$isHoldingAsUser = ($assignedType === \App\Models\User::class) && ($assignedId === $myUserId);
-
-				$isHoldingAsMyLocation =
-				    $myLocationId &&
-				    ($assignedType === \App\Models\Location::class) &&
-				    ($assignedId === $myLocationId);
-
-				$isPrivileged = $me && $me->groups()
-				->whereIn('name', ['Warehouse keeper','Manager Archive','Admin'])
-				->exists();
-
-				$reqLocName  = $request->location() ? $request->location()->name : '';
-				$isInArchive = trim(strtolower($reqLocName)) === 'archive';
-
-				$assetLocationId = $asset->location_id ?? null;
-
-				$canDoCheckout = $assetLocationId == $myLocationId;
-
-				if (!$canDoCheckout) {
-				$skip = true;
-				}
-
-				$inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
-				@endphp
-
-				<tr>
-				<td></td>
-
-				<td>{{ $request->requestable->name ?? '' }}</td>
-
-				<td>{{ $request->location()->name ?? '' }}</td>
-
-				<td>{{ $request->expected_checkin ?? '' }}</td>
-
-				<td>{{ $reqUser->name ?? '' }}</td>
-
-				<td>{{ $request->created_at }}</td>
-
-				<td>
-				<a href="/hardware/{{ $request->requestable->id }}" class="btn btn-sm btn-info">
-				View
-				</a>
-				</td>
-
-				<td>
-				<a href="/hardware/{{ $request->requestable->id }}/checkout" class="btn btn-sm btn-success">
-				Checkout
-				</a>
-				</td>
-				</tr>
-
-				@endforeach
+                                        <td>
+                                            
+						<a href="/hardware/{{ $request->requestable->id }}/checkout"
+						   class="btn btn-sm btn-success single-checkout-btn"
+						   onclick="if (document.querySelectorAll('input[name=&quot;selected_requests[]&quot;]:checked').length > 0) { alert('Use Checkout Selected when multiple rows are selected.'); return false; }">
+						    Checkout
+						</a>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
                         </table>
-
-                    </div> <!-- /.col-md-12 -->
-                </div> <!-- /.row -->
-            </div><!-- /.box-body -->
-        </div><!-- /.box -->
-    </div> <!-- .col-md-12 -->
-</div> <!-- .row -->
+			</form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 @stop
 
 @section('moar_scripts')
@@ -135,4 +110,63 @@
         'clientSearch' => true,
     ])
 
+    <script nonce="{{ csrf_token() }}">
+	    function toggleSingleCheckoutButtons() {
+		let selectedCount = document.querySelectorAll('input[name="selected_requests[]"]:checked').length;
+		let disableSingles = selectedCount >= 1;
+		let buttons = document.querySelectorAll('.single-checkout-btn');
+
+		buttons.forEach(function(btn) {
+		    if (disableSingles) {
+		        btn.classList.add('disabled');
+		        btn.style.pointerEvents = 'none';
+		        btn.style.opacity = '0.5';
+		    } else {
+		        btn.classList.remove('disabled');
+		        btn.style.pointerEvents = '';
+		        btn.style.opacity = '';
+		    }
+		});
+	    }
+
+	    function syncHeaderCheckbox() {
+		let rowCheckboxes = document.querySelectorAll('.requested-check');
+		let checkedRows = document.querySelectorAll('.requested-check:checked');
+		let headerCheckbox = document.getElementById('checkAllRequested');
+
+		if (!headerCheckbox) return;
+
+		if (rowCheckboxes.length === 0) {
+		    headerCheckbox.checked = false;
+		    headerCheckbox.indeterminate = false;
+		    return;
+		}
+
+		headerCheckbox.checked = checkedRows.length === rowCheckboxes.length;
+		headerCheckbox.indeterminate = checkedRows.length > 0 && checkedRows.length < rowCheckboxes.length;
+	    }
+
+	    document.addEventListener('change', function(e) {
+		if (e.target && e.target.id === 'checkAllRequested') {
+		    let checked = e.target.checked;
+
+		    document.querySelectorAll('.requested-check').forEach(function(cb) {
+		        cb.checked = checked;
+		    });
+
+		    toggleSingleCheckoutButtons();
+		    syncHeaderCheckbox();
+		}
+
+		if (e.target && e.target.matches('input[name="selected_requests[]"]')) {
+		    toggleSingleCheckoutButtons();
+		    syncHeaderCheckbox();
+		}
+	    });
+
+	    document.addEventListener('DOMContentLoaded', function() {
+		toggleSingleCheckoutButtons();
+		syncHeaderCheckbox();
+	    });
+	</script>
 @stop

@@ -402,7 +402,10 @@ Route::group(['prefix' => 'account', 'middleware' => ['auth']], function () {
         $trail->parent('home')
             ->push(trans('general.profile'), route('account'))
             ->push(trans('general.viewassets'), route('view-assets')));
-
+    
+    Route::post('assets/bulk-return', [ViewAssetsController::class, 'bulkReturnToArchive'])
+    	->name('account.assets.bulk-return');
+    
     Route::get('requested', [ViewAssetsController::class, 'getRequestedAssets'])
         ->name('account.requested')
         ->breadcrumbs(fn (Trail $trail) =>
@@ -420,6 +423,9 @@ Route::group(['prefix' => 'account', 'middleware' => ['auth']], function () {
 
     Route::post('request-asset/{asset}', [ViewAssetsController::class, 'store'])
         ->name('account.request-asset');
+	
+    Route::post('request-assets/bulk', [ViewAssetsController::class, 'bulkStore'])
+    	->name('account.request-assets.bulk');
 
     Route::post('request-asset/{asset}/cancel', [ViewAssetsController::class, 'destroy'])
         ->name('account.request-asset.cancel');
@@ -448,15 +454,25 @@ Route::group(['prefix' => 'account', 'middleware' => ['auth']], function () {
             ->push(trans('general.profile'), route('account'))
             ->push(trans('general.accept_items'), route('account.accept')));
 
-    Route::get('accept/{id}', [Account\AcceptanceController::class, 'create'])
-        ->name('account.accept.item')
-        ->breadcrumbs(fn (Trail $trail, $id) =>
-        $trail->parent('home')
-            ->push(trans('general.profile'), route('account'))
-            ->push(trans('general.accept_item'), route('account.accept.item', $id)));
+    Route::get('accept', [Account\AcceptanceController::class, 'index'])
+	    ->name('account.accept')
+	    ->breadcrumbs(fn (Trail $trail) =>
+	    $trail->parent('home')
+		->push(trans('general.profile'), route('account'))
+		->push(trans('general.accept_items'), route('account.accept')));
 
-    Route::post('accept/{id}', [Account\AcceptanceController::class, 'store'])
-        ->name('account.store-acceptance');
+	Route::post('accept/bulk', [Account\AcceptanceController::class, 'bulkAccept'])
+	    ->name('account.accept.bulk');
+
+	Route::get('accept/{id}', [Account\AcceptanceController::class, 'create'])
+	    ->name('account.accept.item')
+	    ->breadcrumbs(fn (Trail $trail, $id) =>
+	    $trail->parent('home')
+		->push(trans('general.profile'), route('account'))
+		->push(trans('general.accept_item'), route('account.accept.item', $id)));
+
+	Route::post('accept/{id}', [Account\AcceptanceController::class, 'store'])
+	    ->name('account.store-acceptance');
 
     Route::get(
         'print',
@@ -509,19 +525,15 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-
     Route::get('/returns', [ReturnsController::class, 'index'])->name('returns.index');
-
+    Route::post('/hardware/requested/bulk-checkout',[\App\Http\Controllers\Assets\AssetsController::class, 'bulkCheckoutRequested'])
+        ->name('hardware.requested.bulk-checkout');
     Route::post('/assets/{asset}/return', [ReturnsController::class, 'store'])->name('returns.store');
-
-    Route::post('/returns/{return}/in-transit', [ReturnsController::class, 'markInTransit'])->name('returns.in-transit');
-
+    Route::post('/returns/bulk-received', [ReturnsController::class, 'bulkMarkReceived'])->name('returns.bulk-received');
+    Route::post('/returns/bulk-checkin', [ReturnsController::class, 'bulkCheckin'])->name('returns.bulk-checkin');
     Route::post('/returns/{return}/received', [ReturnsController::class, 'markReceived'])->name('returns.received');
-
     Route::post('/returns/{return}/close', [ReturnsController::class, 'close'])->name('returns.close');
-
     Route::get('/returns/rows', [ReturnsController::class, 'rows'])->name('returns.rows');
-
 });
 
 Route::group(['prefix' => 'reports', 'middleware' => ['auth']], function () {

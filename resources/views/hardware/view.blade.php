@@ -279,10 +279,7 @@ $openReturn = \App\Models\ReturnRequest::where('asset_id', $asset->id)
 					@else
 
 					@if($openReturn->received_at)
-					<a href="{{ route('hardware.checkin.create', $asset->id) }}"
-					   class="btn btn-sm btn-primary btn-social btn-block">
-					   Check-in Asset
-					</a>
+					
 
 					@elseif($openReturn->in_transit_at)
 					<span class="label label-warning">In Transit</span>

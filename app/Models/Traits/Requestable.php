@@ -17,9 +17,21 @@ trait Requestable
     }
 
     public function isRequestedBy(User $user)
-    {
-        return $this->requests->where('canceled_at', null)->where('user_id', $user->id)->first();
-    }
+	{
+	    $query = $this->requests()
+		->whereNull('canceled_at')
+		->where('user_id', $user->id);
+
+	    if (\Illuminate\Support\Facades\Schema::hasColumn('checkout_requests', 'fulfilled_at')) {
+		$query->whereNull('fulfilled_at');
+	    }
+
+	    if (\Illuminate\Support\Facades\Schema::hasColumn('checkout_requests', 'checked_out_at')) {
+		$query->whereNull('checked_out_at');
+	    }
+
+	    return $query->latest()->first();
+	}
 
     public function scopeRequestedBy($query, User $user)
     {
