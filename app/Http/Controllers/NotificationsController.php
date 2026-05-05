@@ -255,7 +255,14 @@ class NotificationsController extends Controller
 		->latest()
 		->take(5)
 		->get();
-
+	    
+	    if ($notifications->isEmpty()) {
+		    return response()->json([
+			'count' => 0,
+			'html' => '<li><a href="'.route('notifications.index').'">No notifications</a></li>',
+		    ]);
+		}
+	    
 	    $html = '';
 
 	    foreach ($notifications as $notification) {

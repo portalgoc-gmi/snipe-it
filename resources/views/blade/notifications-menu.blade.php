@@ -17,22 +17,26 @@
         <li>
             <ul class="menu" id="notifications-list">
                 @foreach(auth()->user()->unreadNotifications()->take(5)->get() as $notification)
-                    <li>
-                        @if (($notification->data['type'] ?? null) !== 'asset_declined_recheckout')
-                            <a href="{{ route('notifications.open', $notification->id) }}">
-                                <strong>{{ $notification->data['title'] ?? 'Notification' }}</strong><br>
-                                {{ $notification->data['item_name'] ?? 'Asset' }}<br>
-                                <small>{{ $notification->data['requested_by'] ?? 'User' }}</small>
-                            </a>
-                        @else
-                            <div style="padding: 10px 15px;">
-                                <strong>{{ $notification->data['title'] ?? 'Notification' }}</strong><br>
-                                {{ $notification->data['message'] ?? ($notification->data['item_name'] ?? 'Asset') }}<br>
-                                <small>{{ $notification->data['declined_by'] ?? 'User' }}</small>
-                            </div>
-                        @endif
-                    </li>
-                @endforeach
+		    @php
+			$icon = $notification->data['icon'] ?? 'far fa-bell';
+			$color = $notification->data['color'] ?? '#777';
+			$title = $notification->data['title'] ?? 'Notification';
+			$message = $notification->data['message'] ?? ($notification->data['item_name'] ?? 'File');
+		    @endphp
+
+		    <li>
+			<a href="{{ route('notifications.open', $notification->id) }}" style="display:flex; gap:10px; align-items:flex-start;">
+			    <span style="width:28px; height:28px; border-radius:50%; background:#f4f4f4; display:flex; align-items:center; justify-content:center;">
+				<i class="{{ $icon }}" style="color:{{ $color }};"></i>
+			    </span>
+
+			    <span>
+				<strong>{{ $title }}</strong><br>
+				<span>{{ $message }}</span>
+			    </span>
+			</a>
+		    </li>
+		@endforeach
             </ul>
         </li>
         <li class="footer">

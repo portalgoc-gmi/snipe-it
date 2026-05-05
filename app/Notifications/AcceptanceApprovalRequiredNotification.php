@@ -19,12 +19,14 @@ class AcceptanceApprovalRequiredNotification extends Notification
     public function toArray($notifiable): array
     {
         return [
-            'type' => 'acceptance_required',
-            'title' => 'Acceptance required',
-            'message' => $this->data['message'] ?? 'You have received an asset. Please Accept or Decline it.',
-            'item_tag' => $this->data['item_tag'] ?? null,
-            'item_name' => $this->data['item_name'] ?? null,
-            'url' => url('/account/accept'),
-        ];
+	    'type' => 'acceptance_required',
+	    'title' => 'File Acceptance Required',
+	    'message' => $this->data['message'] ?? 'You have received a file. Please accept or decline it.',
+	    'icon' => 'fas fa-user-check',
+	    'color' => 'green',
+	    'item_tag' => $this->data['item_tag'] ?? null,
+	    'item_name' => $this->data['item_name'] ?? null,
+	    'url' => url('/account/accept'),
+	];
     }
 }

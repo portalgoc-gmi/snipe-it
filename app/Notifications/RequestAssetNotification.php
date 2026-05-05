@@ -57,8 +57,10 @@ class RequestAssetNotification extends Notification
 
 		return [
 		    'type' => 'asset_request',
-		    'title' => 'New asset request',
-		    'message' => $message,
+		    'title' => 'New File Request',
+		    'message' => "{$requester->display_name} requested file {$itemName} from {$locName}.",
+		    'icon' => 'fas fa-folder-open',
+		    'color' => 'blue',
 		    'item_name' => $itemName,
 		    'item_id' => $this->item->id,
 		    'item_type' => $this->item_type,
@@ -77,9 +79,11 @@ class RequestAssetNotification extends Notification
 
 	    return [
 		'type' => 'asset_request_bulk',
-		'title' => $this->title ?? 'New asset requests',
-		'message' => $this->message ?? 'Multiple asset requests created.',
-		'item_name' => $this->item_name ?? 'Multiple assets',
+		'title' => $this->title ?? 'New File Requests',
+		'message' => $this->message ?? ($this->item_quantity . ' files have been requested.'),
+		'item_name' => $this->item_name ?? 'Multiple files',
+		'icon' => 'fas fa-folder-open',
+		'color' => 'blue',
 		'item_id' => null,
 		'item_type' => 'bulk',
 		'quantity' => $this->item_quantity ?? null,

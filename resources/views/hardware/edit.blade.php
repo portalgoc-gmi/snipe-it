@@ -429,7 +429,29 @@
                 }
             }
         }
+        
+        @if (!$item->id)
+	    @php
+		$archive = \App\Models\Location::where('name', 'Archive')->first();
+		$company = \App\Models\Company::where('name', 'German Medical Institute')->first();
+	    @endphp
 
+	    $('input[name="requestable"]').prop('checked', true);
+
+	    @if($archive)
+		var archiveOption = new Option('Archive', '{{ $archive->id }}', true, true);
+		$('select[name="rtd_location_id"]').append(archiveOption).trigger('change');
+	    @endif
+
+	    var modelOption = new Option('Patient Records', '1', true, true);
+	    $('#model_select_id').append(modelOption).val('1').trigger('change');
+
+	    @if($company)
+		var companyOption = new Option('German Medical Institute', '{{ $company->id }}', true, true);
+		$('select[name="company_id"]').append(companyOption).trigger('change');
+	    @endif
+	@endif
+        
     });
 
 

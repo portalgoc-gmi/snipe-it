@@ -278,29 +278,9 @@
                 <div class="row">
                     <div class="col-md-12">
                         <div class="chart-responsive">
-    <canvas id="statusPieChart" height="260"></canvas>
-</div>
-
-<div style="margin-top:15px;">
-    <div class="row">
-        <div class="col-md-6">
-            <select id="statusFilter" class="form-control">
-                <option value="">All Statuses</option>
-                <option value="In Archive">In Archive</option>
-                <option value="In Transit">In Transit</option>
-                <option value="With Department">With Department</option>
-            </select>
-        </div>
-        <div class="col-md-6">
-            <select id="locationFilter" class="form-control">
-                <option value="">All Locations</option>
-                @foreach($dashboardLocations as $loc)
-                    <option value="{{ $loc }}">{{ $loc }}</option>
-                @endforeach
-            </select>
-        </div>
-    </div>
-</div>
+                            <canvas id="statusPieChart" height="260"></canvas>
+                        </div> <!-- ./chart-responsive -->
+                        
                     </div> <!-- /.col -->
                 </div> <!-- /.row -->
             </div><!-- /.box-body -->
@@ -308,48 +288,6 @@
   </div>
 
 </div> <!--/row-->
-
-<div class="row">
-    <div class="col-md-12">
-        <div class="box box-default">
-            <div class="box-header with-border">
-                <h2 class="box-title">Tracked Patient Files by Status / Location</h2>
-            </div>
-            <div class="box-body">
-                <div class="table-responsive">
-                    <table class="table table-striped table-bordered" id="trackedAssetsTable">
-                        <thead>
-                            <tr>
-                                <th>Asset Tag</th>
-                                <th>Name</th>
-                                <th>Status</th>
-                                <th>Location</th>
-                                <th>Assigned To</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($trackedAssets as $asset)
-                                <tr
-                                    data-status="{{ $asset['status'] }}"
-                                    data-location="{{ $asset['location'] }}"
-                                >
-                                    <td>
-                                        <a href="{{ $asset['url'] }}">{{ $asset['asset_tag'] }}</a>
-                                    </td>
-                                    <td>{{ $asset['name'] }}</td>
-                                    <td>{{ $asset['status'] }}</td>
-                                    <td>{{ $asset['location'] }}</td>
-                                    <td>{{ $asset['assigned_to'] }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="row">
     <div class="col-md-6">
 
@@ -623,24 +561,5 @@
         if (current != last) location.reload();
         last = current;
     });
-    
-    function filterTrackedAssets() {
-    let status = $('#statusFilter').val();
-    let location = $('#locationFilter').val();
-
-    $('#trackedAssetsTable tbody tr').each(function () {
-        let rowStatus = $(this).data('status');
-        let rowLocation = $(this).data('location');
-
-        let statusMatch = !status || rowStatus === status;
-        let locationMatch = !location || rowLocation === location;
-
-        $(this).toggle(statusMatch && locationMatch);
-    });
-}
-
-$(document).on('change', '#statusFilter, #locationFilter', function () {
-    filterTrackedAssets();
-});
 </script>
 @endpush

@@ -127,7 +127,11 @@ class AssetCheckinController extends Controller
 
         $this->migrateLegacyLocations($asset);
 
-        $asset->location_id = $asset->rtd_location_id;
+	$inArchiveId = \App\Models\Statuslabel::where('name', 'In Archive')->value('id');
+
+	if ((int) $asset->status_id !== (int) $inArchiveId) {
+	    $asset->location_id = $asset->rtd_location_id;
+	}
 
         if ($request->filled('location_id')) {
             Log::debug('NEW Location ID: '.$request->input('location_id'));
@@ -189,9 +193,8 @@ class AssetCheckinController extends Controller
 		if ($returnId) {
 		    $returnQuery->where('id', $returnId);
 		} else {
-		    $returnQuery->whereNotNull('received_at')
-		        ->orderByDesc('requested_at')
-		        ->orderByDesc('id');
+		    $returnQuery->orderByDesc('requested_at')
+        		->orderByDesc('id');
 		}
 
 		$return = $returnQuery->first();

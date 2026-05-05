@@ -205,14 +205,3 @@
 
 @stop
 
-@php
-$u = auth()->user();
-$canSeeCheckin = $u && ! $u->groups()->where('name', 'Secretary')->exists();
-@endphp
-
-@if (!$canSeeCheckin)
-    <div class="alert alert-danger">
-        You do not have permission to check in assets.
-    </div>
-    @php return; @endphp
-@endif

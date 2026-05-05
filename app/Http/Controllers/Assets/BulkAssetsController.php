@@ -710,6 +710,21 @@ class BulkAssetsController extends Controller
             DB::transaction(function () use ($target, $admin, $checkout_at, $expected_checkin, &$errors, $assets, $request) { //NOTE: $errors is passsed by reference!
                 foreach ($assets as $asset) {
                     $this->authorize('checkout', $asset);
+                    if ((int) ($asset->location_id ?? 0) === (int) ($target->location_id ?? 0)) {
+			    $errors[] = 'Asset ' . $asset->asset_tag . ' is already in target location.';
+			    continue;
+			}
+
+			$hasOpenReturn = \App\Models\ReturnRequest::where('asset_id', $asset->id)
+			    ->whereNull('closed_at')
+			    ->whereNull('canceled_at')
+			    ->exists();
+
+			if ($hasOpenReturn) {
+			    $errors[] = 'Asset ' . $asset->asset_tag . ' has an open return request.';
+			    continue;
+			}
+                    
 
                     // See if there is a status label passed
                     if ($request->filled('status_id')) {

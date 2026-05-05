@@ -31,7 +31,7 @@ class ReturnStatusNotification extends Notification
 
     public function toDatabase($notifiable): array
     {
-        $assetName = $this->asset?->name ?? 'Asset';
+        $assetName = $this->asset?->name ?? 'File';
         $assetTag  = $this->asset?->asset_tag ?? ($this->asset?->id ?? '');
         $who       = $this->actor?->display_name ?? $this->actor?->username ?? 'System';
 
@@ -42,15 +42,18 @@ class ReturnStatusNotification extends Notification
             default      => 'return_update',
         };
 
-        $title = match ($this->event) {
+        $message = match ($this->event) {
 	    'requested'  => (!empty($this->bulkCount) && $this->bulkCount > 1)
-		? "{$this->bulkCount} Assets - Return to Archive"
-		: 'Return to Archive',
-	    'in_transit' => 'Marked In Transit',
+		? "{$this->bulkCount} files were requested for return by {$who}."
+		: "Return requested for file {$assetName} ({$assetTag}) by {$who}.",
+
+	    'in_transit' => "File {$assetName} ({$assetTag}) is in transit.",
+
 	    'received'   => (!empty($this->bulkCount) && $this->bulkCount > 1)
-		? "{$this->bulkCount} Assets - Marked Received"
-		: 'Marked Received',
-	    default      => 'Return update',
+		? "{$this->bulkCount} files were received."
+		: "File {$assetName} ({$assetTag}) was received.",
+
+	    default      => "Return updated for file {$assetName} ({$assetTag}).",
 	};
 
         if ($this->event === 'requested' && !empty($this->bulkCount) && $this->bulkCount > 1) {
@@ -69,11 +72,20 @@ class ReturnStatusNotification extends Notification
         $url = ($this->event === 'received')
             ? '/hardware/' . ($this->asset?->id)
             : '/returns';
+	
+	$title = match ($this->event) {
+	    'requested'  => 'Return to Archive Requested',
+	    'in_transit' => 'Return In Transit',
+	    'received'   => 'Return Received',
+	    default      => 'Return Update',
+	};
 
         return [
             'type'       => $type,
             'title'      => $title,
             'message'    => $message,
+            'icon' => 'fas fa-archive',
+            'color' => 'orange',
             'url'        => $url,
             'event'      => $this->event,
             'return_id'  => $this->return?->id,

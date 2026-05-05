@@ -285,7 +285,16 @@ class ViewAssetsController extends Controller
 	    if (!empty($user?->location_id) && (int) $asset->location_id === (int) $user->location_id) {
 		return redirect()->back()->with('error', 'This asset is already in your location.');
 	    }
+	    
+	    $hasOpenReturn = ReturnRequest::where('asset_id', $asset->id)
+		    ->whereNull('canceled_at')
+		    ->whereNull('closed_at')
+		    ->exists();
 
+		if ($hasOpenReturn) {
+		    return redirect()->back()->with('error', 'This asset has an open return request.');
+		}
+	    
 	    try {
 		CreateCheckoutRequestAction::run($asset, $user);
 		return redirect()->route('requestable-assets')->with('success')->with('success', trans('admin/hardware/message.requests.success'));
@@ -330,7 +339,16 @@ class ViewAssetsController extends Controller
 		    if (!empty($requester?->location_id) && (int) $asset->location_id === (int) $requester->location_id) {
 			continue;
 		    }
+		    
+		    $hasOpenReturn = ReturnRequest::where('asset_id', $asset->id)
+			    ->whereNull('canceled_at')
+			    ->whereNull('closed_at')
+			    ->exists();
 
+			if ($hasOpenReturn) {
+			    continue;
+			}
+		    
 		    try {
 			CreateCheckoutRequestAction::run($asset, $requester, false);
 			$requestedCount++;

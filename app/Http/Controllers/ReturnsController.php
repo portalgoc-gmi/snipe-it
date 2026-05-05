@@ -52,17 +52,6 @@ class ReturnsController extends Controller
 		abort(403);
 	    }
 
-	    ReturnRequest::query()
-		->whereNull('canceled_at')
-		->whereNull('closed_at')
-		->whereHas('asset', function ($q) {
-		    $q->whereNull('assigned_to');
-		})
-		->update([
-		    'checked_in_at' => now(),
-		    'closed_at'     => now(),
-		]);
-
 	    $returns = ReturnRequest::query()
 		->whereNull('canceled_at')
 		->whereNull('closed_at')
@@ -163,17 +152,6 @@ class ReturnsController extends Controller
     public function rows()
 	{
 	    $me = auth()->user();
-
-	    ReturnRequest::query()
-		->whereNull('canceled_at')
-		->whereNull('closed_at')
-		->whereHas('asset', function ($q) {
-		    $q->whereNull('assigned_to');
-		})
-		->update([
-		    'checked_in_at' => now(),
-		    'closed_at'     => now(),
-		]);
 
 	    $returns = ReturnRequest::with('asset')
 		->whereNull('canceled_at')

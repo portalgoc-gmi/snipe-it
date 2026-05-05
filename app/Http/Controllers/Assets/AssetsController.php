@@ -1194,20 +1194,28 @@ class AssetsController extends Controller
 			$checkout_at = date('Y-m-d H:i:s');
 			$expected_checkin = '';
 
-			if ($targetUser->location_id) {
-			    $asset->location_id = $targetUser->location_id;
-			}
-
 			$inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
 			if ($inTransitId) {
 			    $asset->status_id = $inTransitId;
 			}
 
-			if (!$asset->availableForCheckout()) {
-			    $asset->assignedTo()->disassociate();
-			    $asset->accepted = null;
-			    $asset->expected_checkin = null;
-			    $asset->save();
+			if ((int) ($asset->location_id ?? 0) === (int) ($targetUser->location_id ?? 0)) {
+			    $errors[] = 'Asset ' . $asset->asset_tag . ' is already in target location.';
+			    continue;
+			}
+
+			$hasOpenReturn = \App\Models\ReturnRequest::where('asset_id', $asset->id)
+			    ->whereNull('closed_at')
+			    ->whereNull('canceled_at')
+			    ->exists();
+
+			if ($hasOpenReturn) {
+			    $errors[] = 'Asset ' . $asset->asset_tag . ' has an open return request.';
+			    continue;
+			}
+			
+			if ($targetUser->location_id) {
+			    $asset->location_id = $targetUser->location_id;
 			}
 
 			$success = $asset->checkOut(

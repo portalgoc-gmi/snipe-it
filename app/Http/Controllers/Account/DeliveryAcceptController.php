@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Asset;
 use App\Models\Statuslabel;
 use Illuminate\Http\Request;
+use App\Models\ReturnRequest;
 
 class DeliveryAcceptController extends Controller
 {
@@ -22,6 +23,19 @@ class DeliveryAcceptController extends Controller
         ]);
 
         $asset = Asset::findOrFail($assetId);
+        
+        $hasOpenReturn = ReturnRequest::where('asset_id', $asset->id)
+	    ->whereNull('canceled_at')
+	    ->whereNull('closed_at')
+	    ->exists();
+
+	if ($hasOpenReturn) {
+	    return redirect()->back()->with('error', 'This asset has an open return request.');
+	}
+
+	if (auth()->user()?->location_id) {
+	    $asset->location_id = auth()->user()->location_id;
+	}
 
         // Append delivery note to asset notes
         $existingNotes = $asset->notes ?? '';

@@ -12,6 +12,7 @@ Notifications
     @forelse ($pending as $notification)
       @php
         $type = $notification->data['type'] ?? null;
+        $isDeclined = $type === 'asset_declined_recheckout';
         $openUrl = route('notifications.open', $notification->id);
 
         $title = $notification->data['title'] ?? ($notification->data['item_name'] ?? 'Notification');
@@ -28,7 +29,7 @@ Notifications
         }
       @endphp
 
-      <div class="alert {{ $notification->read_at ? 'alert-default' : 'alert-info' }}">
+      <div class="alert {{ $isDeclined ? 'alert-danger' : ($notification->read_at ? 'alert-default' : 'alert-info') }}">
         <strong>
           @if ($type === 'acceptance_required')
             Acceptance required
@@ -60,9 +61,7 @@ Notifications
           <br><br>
         @endif
 
-        @if (($notification->data['type'] ?? null) !== 'asset_declined_recheckout')
-	    <a class="btn btn-xs btn-primary" href="{{ $openUrl }}">Open</a>
-	@endif
+        <a class="btn btn-xs btn-primary" href="{{ $openUrl }}">Open</a>
 
         @if (is_null($notification->read_at))
           <form method="POST" action="{{ route('notifications.read', $notification->id) }}" style="display:inline;">
@@ -89,6 +88,9 @@ Notifications
 
     @forelse ($completed as $notification)
       @php
+      	$type = $notification->data['type'] ?? null;
+  	$isDeclined = $type === 'asset_declined_recheckout';
+  	
         $openUrl = route('notifications.open', $notification->id);
         $title = $notification->data['title'] ?? ($notification->data['item_name'] ?? 'Notification');
         $requestedBy = $notification->data['requested_by'] ?? null;
@@ -100,7 +102,7 @@ Notifications
         }
       @endphp
 
-      <div class="alert alert-default">
+      <div class="alert {{ $isDeclined ? 'alert-danger' : 'alert-default' }}">
         <strong>{{ $title }}</strong>
 
         @if(!empty($isAdmin) && $toUser)
@@ -121,9 +123,7 @@ Notifications
 
         <br><br>
 
-        @if (($notification->data['type'] ?? null) !== 'asset_declined_recheckout')
-	    <a class="btn btn-xs btn-primary" href="{{ $openUrl }}">Open</a>
-	@endif
+        <a class="btn btn-xs btn-primary" href="{{ $openUrl }}">Open</a>
 
         @if (is_null($notification->read_at))
           <form method="POST" action="{{ route('notifications.read', $notification->id) }}" style="display:inline;">

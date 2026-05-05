@@ -138,7 +138,21 @@ public function create(Asset $asset) : View | RedirectResponse
             if (!$target) {
             	return redirect()->back()->with('error', 'Please select a user.');
             	}
+            	
         
+            if ((int) ($asset->location_id ?? 0) === (int) ($target->location_id ?? 0)) {
+		    return redirect()->back()->with('error', 'Asset is already in the target location.');
+		}
+
+		$hasOpenReturn = \App\Models\ReturnRequest::where('asset_id', $asset->id)
+		    ->whereNull('closed_at')
+		    ->whereNull('canceled_at')
+		    ->exists();
+
+		if ($hasOpenReturn) {
+		    return redirect()->back()->with('error', 'Asset has an open return request.');
+		}
+            
             // location ΜΟΝΟ από τον user που έκανε request
             if ($target->location_id) {
 		$asset->location_id = $target->location_id;
@@ -199,12 +213,6 @@ public function create(Asset $asset) : View | RedirectResponse
 		    'checkout_to_type' => 'user'
 		]);
 	
-	    if (! $asset->availableForCheckout() && $activeRequest) {
-		    $asset->assignedTo()->disassociate();
-		    $asset->accepted = null;
-		    $asset->expected_checkin = null;
-		    $asset->save();
-		}
 
             if ($asset->checkOut($target, $admin, $checkout_at, $expected_checkin, $request->input('note'), $request->input('name'))) {
             	

@@ -141,6 +141,18 @@ class AcceptanceController extends Controller
         }
 
         $item = $acceptance->checkoutable;
+        
+        if ($item instanceof \App\Models\Asset) {
+	    $hasOpenReturn = \App\Models\ReturnRequest::where('asset_id', $item->id)
+		->whereNull('canceled_at')
+		->whereNull('closed_at')
+		->exists();
+
+	    if ($hasOpenReturn) {
+		return redirect()->route('account.accept')
+		    ->with('error', 'This asset has an open return request.');
+	    }
+	}
 
         // If signatures are required, make sure we have one
         if (Setting::getSettings()->require_accept_signature == '1') {
@@ -411,6 +423,16 @@ class AcceptanceController extends Controller
             $errors[] = 'Missing item.';
             continue;
         }
+        
+        $hasOpenReturn = \App\Models\ReturnRequest::where('asset_id', $item->id)
+	    ->whereNull('canceled_at')
+	    ->whereNull('closed_at')
+	    ->exists();
+
+	if ($hasOpenReturn) {
+	    $errors[] = 'Asset ' . $item->asset_tag . ' has an open return request.';
+	    continue;
+	}
 
         try {
             if ($acceptance->checkoutable_type === \App\Models\Asset::class) {
