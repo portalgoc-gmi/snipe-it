@@ -70,4 +70,4 @@ storage/ldap_client_tls.cert
 storage/ldap_client_tls.key
 /storage/framework/testing
 
-/.phpunit.cache
+/.phpunit.cachessl-filemanagement/
