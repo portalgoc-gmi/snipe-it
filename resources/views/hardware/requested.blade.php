@@ -43,6 +43,7 @@
 					<input type="checkbox" id="checkAllRequested">
 			            </th>
                                     <th class="col-md-1">{{ trans('general.image') }}</th>
+                                    <th class="col-md-1">Asset ID</th>
                                     <th class="col-md-2">{{ trans('general.name') }}</th>
                                     <th class="col-md-2">{{ trans('admin/hardware/table.location') }}</th>
                                     <th class="col-md-2">{{ trans('admin/hardware/form.expected_checkin') }}</th>
@@ -70,6 +71,7 @@
 					</td>
 
                                         <td></td>
+                                        <td>{{ $request->requestable->asset_tag ?? '' }}</td>
                                         <td>{{ $request->requestable->name ?? '' }}</td>
                                         <td>{{ $request->location()->name ?? '' }}</td>
                                         <td>{{ $request->expected_checkin ?? '' }}</td>
@@ -84,11 +86,14 @@
 
                                         <td>
                                             
-						<a href="/hardware/{{ $request->requestable->id }}/checkout"
-						   class="btn btn-sm btn-success single-checkout-btn"
-						   onclick="if (document.querySelectorAll('input[name=&quot;selected_requests[]&quot;]:checked').length > 0) { alert('Use Checkout Selected when multiple rows are selected.'); return false; }">
-						    Checkout
-						</a>
+						<button type="submit"
+						form="bulkCheckoutForm"
+						name="selected_requests[]"
+						value="{{ $request->id }}"
+						class="btn btn-sm btn-success single-checkout-btn"
+						onclick="if (document.querySelectorAll('input[name=&quot;selected_requests[]&quot;]:checked').length > 0) { alert('Use Checkout Selected when multiple rows are selected.'); return false; }">
+					    Checkout
+					</button>
                                         </td>
                                     </tr>
                                 @endforeach

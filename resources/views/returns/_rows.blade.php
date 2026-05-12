@@ -29,7 +29,9 @@
         <span class="text-muted">(missing asset)</span>
       @endif
     </td>
-
+    
+    <td>{{ $r->requester->name ?? '—' }}</td>
+    
     <td>
       @if($r->requested_at)
         {{ \Carbon\Carbon::parse($r->requested_at)->format('Y-m-d H:i') }}

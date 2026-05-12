@@ -54,9 +54,10 @@
                                 <tr>
                                     <th><input type="checkbox" id="checkAllReturns"></th>
                                     <th>Asset</th>
-                                    <th>Requested At</th>
-                                    <th>In Transit</th>
-                                    <th>Received</th>
+                                    <th class="sortable" data-col="2">Returned By ⇅</th>
+                                    <th class="sortable" data-col="3">Requested At ⇅</th>
+                                    <th class="sortable" data-col="4">In Transit ⇅</th>
+                                    <th class="sortable" data-col="5">Received ⇅</th>
                                     <th style="width:240px;">Actions</th>
                                 </tr>
                             </thead>
@@ -94,7 +95,9 @@
                                                 <span class="text-muted">(missing asset)</span>
                                             @endif
                                         </td>
-
+					
+					<td>{{ $r->requester->name ?? '—' }}</td>
+					
                                         <td>
                                             @if($r->requested_at)
                                                 {{ \Carbon\Carbon::parse($r->requested_at)->format('Y-m-d H:i') }}
@@ -274,6 +277,7 @@
             toggleSingleButtons();
             toggleBulkButtons();
             syncReturnsHeaderCheckbox();
+            applySort();
         });
     }
 
@@ -285,6 +289,39 @@
         toggleBulkButtons();
         syncReturnsHeaderCheckbox();
     });
+    
+    let lastSort = { col: null, asc: true };
+
+function applySort() {
+    if (lastSort.col === null) return;
+
+    let tbody = document.querySelector('#returnsTable tbody');
+    let rows = Array.from(tbody.querySelectorAll('tr'));
+
+    rows.sort(function(a, b) {
+        let A = (a.children[lastSort.col]?.innerText || '').trim().toLowerCase();
+        let B = (b.children[lastSort.col]?.innerText || '').trim().toLowerCase();
+
+        return lastSort.asc ? A.localeCompare(B) : B.localeCompare(A);
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+document.addEventListener('click', function(e) {
+    if (e.target && e.target.classList.contains('sortable')) {
+        let col = parseInt(e.target.dataset.col);
+
+        if (lastSort.col === col) {
+            lastSort.asc = !lastSort.asc;
+        } else {
+            lastSort.col = col;
+            lastSort.asc = true;
+        }
+
+        applySort();
+    }
+});
 </script>
 
 @endpush
