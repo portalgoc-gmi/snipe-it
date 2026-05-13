@@ -57,6 +57,8 @@
                             <table
                                 data-cookie-id-table="requestableAssetsListingTable"
                                 data-id-table="requestableAssetsListingTable"
+                                data-unique-id="id"
+                                data-maintain-meta-data="true"
                                 data-side-pagination="server"
                                 data-show-export="false"
                                 data-show-footer="false"
@@ -169,6 +171,28 @@
         @endif
     </div> <!-- .col-md-12> -->
 </div> <!-- .row -->
+
+<div class="modal fade" id="bulkRequestConfirmModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-blue">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">Confirm Request</h4>
+      </div>
+
+      <div class="modal-body">
+        <p>You selected the following assets:</p>
+        <div id="selectedAssetsList" style="max-height:250px; overflow-y:auto;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">No</button>
+        <button type="button" id="confirmBulkRequestBtn" class="btn btn-primary">Yes, request</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 @stop
 
 
@@ -193,43 +217,93 @@
 </script>
 
 <script nonce="{{ csrf_token() }}">
-    $('#bulkRequestBtn').on('click', function () {
-        let rows = $('#assetsListingTable').bootstrapTable('getSelections');
+    let selectedAssets = new Map();
 
-        if (!rows.length) {
+    $('#assetsListingTable').on('check.bs.table', function (e, row) {
+        selectedAssets.set(row.id, row);
+    });
+
+    $('#assetsListingTable').on('uncheck.bs.table', function (e, row) {
+        selectedAssets.delete(row.id);
+    });
+
+    $('#assetsListingTable').on('check-all.bs.table', function (e, rows) {
+        rows.forEach(row => selectedAssets.set(row.id, row));
+    });
+
+    $('#assetsListingTable').on('uncheck-all.bs.table', function (e, rows) {
+        rows.forEach(row => selectedAssets.delete(row.id));
+    });
+
+    $('#assetsListingTable').on('load-success.bs.table', function () {
+        let rows = $('#assetsListingTable').bootstrapTable('getData');
+
+        rows.forEach(function (row) {
+            if (selectedAssets.has(row.id)) {
+                $('#assetsListingTable').bootstrapTable('checkBy', {
+                    field: 'id',
+                    values: [row.id]
+                });
+            }
+        });
+
+        toggleSingleRequestButtons();
+    });
+
+    $('#bulkRequestBtn').on('click', function () {
+        if (selectedAssets.size === 0) {
             alert('Please select at least one asset.');
             return;
         }
 
-        let ids = rows.map(r => r.id);
-        let form = $('<form>', {
-            method: 'POST',
-            action: "{{ route('account.request-assets.bulk') }}"
+        let selectedList = [];
+
+        selectedAssets.forEach(function(row) {
+            selectedList.push((row.asset_tag || row.id) + ' - ' + (row.name || ''));
         });
 
+        let message = "You selected:\n\n" + selectedList.join("\n") + "\n\nDo you want to request these assets?";
+
+        $('#selectedAssetsList').html(
+	    '<ul>' + selectedList.map(item => '<li>' + item + '</li>').join('') + '</ul>'
+	);
+
+	$('#bulkRequestConfirmModal').modal('show');
+	return;
+
+    });
+    
+    $('#confirmBulkRequestBtn').on('click', function () {
+    let form = $('<form>', {
+        method: 'POST',
+        action: "{{ route('account.request-assets.bulk') }}"
+    });
+
+    form.append($('<input>', {
+        type: 'hidden',
+        name: '_token',
+        value: "{{ csrf_token() }}"
+    }));
+
+    selectedAssets.forEach(function(row) {
         form.append($('<input>', {
             type: 'hidden',
-            name: '_token',
-            value: "{{ csrf_token() }}"
+            name: 'selected_assets[]',
+            value: row.id
         }));
-
-        ids.forEach(function(id) {
-            form.append($('<input>', {
-                type: 'hidden',
-                name: 'selected_assets[]',
-                value: id
-            }));
-        });
-
-        $('body').append(form);
-        form.submit();
     });
+
+    $('body').append(form);
+    form.submit();
+});
+    
+    
 </script>
 
 <script nonce="{{ csrf_token() }}">
     function toggleSingleRequestButtons() {
-        let rows = $('#assetsListingTable').bootstrapTable('getSelections');
-        let disableSingle = rows.length >= 1;
+        
+	let disableSingle = selectedAssets.size >= 1;
 
         $('#assetsListingTable tbody tr').each(function () {
             let $row = $(this);
