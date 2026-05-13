@@ -164,6 +164,9 @@
 @push('js')
 
 <script>
+
+    let selectedReturnIds = new Set();
+    
     function selectedReceivedCheckboxes() {
         return document.querySelectorAll('.return-check-received:checked');
     }
@@ -240,6 +243,11 @@
             let checked = e.target.checked;
             document.querySelectorAll('.return-check').forEach(function(cb) {
                 cb.checked = checked;
+                 if (checked) {
+			selectedReturnIds.add(cb.value);
+		    } else {
+			selectedReturnIds.delete(cb.value);
+		    }
             });
             toggleSingleButtons();
             toggleBulkButtons();
@@ -247,6 +255,11 @@
         }
 
         if (e.target && e.target.matches('.return-check')) {
+            if (e.target.checked) {
+		    selectedReturnIds.add(e.target.value);
+		} else {
+		    selectedReturnIds.delete(e.target.value);
+		}
             toggleSingleButtons();
             toggleBulkButtons();
             syncReturnsHeaderCheckbox();
@@ -272,14 +285,21 @@
     });
 
     function refreshReturnsRows() {
-        $.get("{{ route('returns.rows') }}", function (html) {
-            $('#returnsTable tbody').html(html);
-            toggleSingleButtons();
-            toggleBulkButtons();
-            syncReturnsHeaderCheckbox();
-            applySort();
-        });
-    }
+	    $.get("{{ route('returns.rows') }}", function (html) {
+		$('#returnsTable tbody').html(html);
+
+		document.querySelectorAll('.return-check').forEach(function(cb) {
+		    if (selectedReturnIds.has(cb.value)) {
+		        cb.checked = true;
+		    }
+		});
+
+		toggleSingleButtons();
+		toggleBulkButtons();
+		syncReturnsHeaderCheckbox();
+		applySort();
+	    });
+	}
 
     refreshReturnsRows();
     setInterval(refreshReturnsRows, 10000);

@@ -1031,6 +1031,29 @@
 </head>
 
     <body class="sidebar-mini{{ (session('menu_state')!='open') ? ' sidebar-mini sidebar-collapse' : ''  }}">
+    
+    	@if (config('app.url') === 'http://192.168.5.154')
+		<div style="
+		    position: fixed;
+		    top: 0;
+		    left: 0;
+		    width: 100%;
+		    background: #d9534f;
+		    color: white;
+		    text-align: center;
+		    padding: 8px;
+		    font-weight: bold;
+		    z-index: 99999;
+		">
+		    TEST SITE
+		</div>
+
+		<style>
+		    body {
+			padding-top: 35px;
+		    }
+		</style>
+		@endif
 
         <a class="skip-main" href="#main">{{ trans('general.skip_to_main_content') }}</a>
         <div class="wrapper">
@@ -1375,14 +1398,17 @@
                                     <?php $status_navs = \App\Models\Statuslabel::where('show_in_nav', '=', 1)->withCount('assets as asset_count')->get(); ?>
                                     @if (count($status_navs) > 0)
                                         @foreach ($status_navs as $status_nav)
-                                            <li{!! (request()->is('statuslabels/'.$status_nav->id) ? ' class="active"' : '') !!}>
-                                                <a href="{{ route('statuslabels.show', ['statuslabel' => $status_nav->id]) }}">
+                                            <li{!! (request()->query('status_id') == $status_nav->id ? ' class="active"' : '') !!}>
+                                            <a href="{{ url('hardware?status_id='.$status_nav->id) }}">
                                                     <i class="fas fa-circle text-grey fa-fw"
                                                        aria-hidden="true"{!!  ($status_nav->color!='' ? ' style="color: '.e($status_nav->color).'"' : '') !!}></i>
                                                     {{ $status_nav->name }}
                                                     <span class="badge badge-secondary">{{ $status_nav->asset_count }}</span></a></li>
                                         @endforeach
                                     @endif
+
+
+{{--	
 
 
                                     <li id="deployed-sidenav-option" {!! (Request::query('status') == 'Deployed' ? ' class="active"' : '') !!}>
@@ -1432,6 +1458,12 @@
                                             {{ trans('admin/hardware/general.requestable') }}
                                         </a>
                                     </li>
+
+
+--}}
+
+
+
 
                                     @can('audit', \App\Models\Asset::class)
                                         <li id="audit-due-sidenav-option"{!! (request()->is('hardware/audit/due') ? ' class="active"' : '') !!}>
