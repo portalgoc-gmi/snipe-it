@@ -84,6 +84,8 @@
       </div>
     </div>
 
+{{--
+
     <div class="box box-default">
       <div class="box-header with-border">
         <h3 class="box-title">Department Items</h3>
@@ -164,6 +166,8 @@
 	</div>
     </div>
 
+--}}
+
   </div>
 </div>
 @stop
@@ -176,13 +180,14 @@
         return document.querySelectorAll('.acceptance-check:checked');
     }
 
-    function selectedDepartmentAcceptanceCheckboxes() {
-        return document.querySelectorAll('.department-acceptance-check:checked');
-    }
+    /*
+    DEPARTMENT LOGIC OFF
+    function selectedDepartmentAcceptanceCheckboxes() {...}
+    function syncDepartmentAcceptHeaderCheckbox() {...}
+    */
 
     function toggleSingleAcceptButtons() {
         let mySelectedCount = selectedMyAcceptanceCheckboxes().length;
-        let deptSelectedCount = selectedDepartmentAcceptanceCheckboxes().length;
 
         document.querySelectorAll('.single-accept-btn').forEach(function(btn) {
             btn.classList.toggle('disabled', mySelectedCount >= 1);
@@ -190,31 +195,25 @@
             btn.style.opacity = mySelectedCount >= 1 ? '0.5' : '';
         });
 
-        document.querySelectorAll('.department-single-accept-btn').forEach(function(btn) {
-            btn.classList.toggle('disabled', deptSelectedCount >= 1);
-            btn.style.pointerEvents = deptSelectedCount >= 1 ? 'none' : '';
-            btn.style.opacity = deptSelectedCount >= 1 ? '0.5' : '';
-        });
+        /*
+        DEPARTMENT SINGLE BUTTONS OFF
+        document.querySelectorAll('.department-single-accept-btn')...
+        */
     }
 
     function toggleBulkButtons() {
-        let mySelectedCount = selectedMyAcceptanceCheckboxes().length;
-        let deptSelectedCount = selectedDepartmentAcceptanceCheckboxes().length;
-
         let myBtn = document.getElementById('bulkAcceptBtn');
-        let deptBtn = document.getElementById('bulkDepartmentAcceptBtn');
 
         if (myBtn) {
-            myBtn.disabled = deptSelectedCount > 0;
-            myBtn.style.pointerEvents = deptSelectedCount > 0 ? 'none' : '';
-            myBtn.style.opacity = deptSelectedCount > 0 ? '0.5' : '';
+            myBtn.disabled = false;
+            myBtn.style.pointerEvents = '';
+            myBtn.style.opacity = '';
         }
 
-        if (deptBtn) {
-            deptBtn.disabled = mySelectedCount > 0;
-            deptBtn.style.pointerEvents = mySelectedCount > 0 ? 'none' : '';
-            deptBtn.style.opacity = mySelectedCount > 0 ? '0.5' : '';
-        }
+        /*
+        DEPARTMENT BULK BUTTON OFF
+        let deptBtn = document.getElementById('bulkDepartmentAcceptBtn');
+        */
     }
 
     function syncMyAcceptHeaderCheckbox() {
@@ -234,42 +233,17 @@
         header.indeterminate = checked.length > 0 && checked.length < all.length;
     }
 
-    function syncDepartmentAcceptHeaderCheckbox() {
-        let all = document.querySelectorAll('.department-acceptance-check');
-        let checked = document.querySelectorAll('.department-acceptance-check:checked');
-        let header = document.getElementById('checkAllDepartmentAcceptances');
-
-        if (!header) return;
-
-        if (all.length === 0) {
-            header.checked = false;
-            header.indeterminate = false;
-            return;
-        }
-
-        header.checked = all.length === checked.length;
-        header.indeterminate = checked.length > 0 && checked.length < all.length;
-    }
-
     document.addEventListener('change', function(e) {
         if (e.target && e.target.id === 'checkAllMyAcceptances') {
             let checked = e.target.checked;
+
             document.querySelectorAll('.acceptance-check').forEach(function(cb) {
                 cb.checked = checked;
             });
+
             toggleSingleAcceptButtons();
             toggleBulkButtons();
             syncMyAcceptHeaderCheckbox();
-        }
-
-        if (e.target && e.target.id === 'checkAllDepartmentAcceptances') {
-            let checked = e.target.checked;
-            document.querySelectorAll('.department-acceptance-check').forEach(function(cb) {
-                cb.checked = checked;
-            });
-            toggleSingleAcceptButtons();
-            toggleBulkButtons();
-            syncDepartmentAcceptHeaderCheckbox();
         }
 
         if (e.target && e.target.matches('.acceptance-check')) {
@@ -278,16 +252,15 @@
             syncMyAcceptHeaderCheckbox();
         }
 
-        if (e.target && e.target.matches('.department-acceptance-check')) {
-            toggleSingleAcceptButtons();
-            toggleBulkButtons();
-            syncDepartmentAcceptHeaderCheckbox();
-        }
+        /*
+        DEPARTMENT CHANGE LOGIC OFF
+        */
     });
 
     document.addEventListener('submit', function(e) {
         if (e.target && e.target.id === 'bulkAcceptForm') {
             let checked = selectedMyAcceptanceCheckboxes();
+
             if (checked.length === 0) {
                 e.preventDefault();
                 alert('Please select at least one item from My Items.');
@@ -295,21 +268,19 @@
             }
         }
 
-        if (e.target && e.target.id === 'bulkDepartmentAcceptForm') {
-            let checked = selectedDepartmentAcceptanceCheckboxes();
-            if (checked.length === 0) {
-                e.preventDefault();
-                alert('Please select at least one item from Department Items.');
-                return false;
-            }
-        }
+        /*
+        DEPARTMENT SUBMIT LOGIC OFF
+        */
     });
 
     document.addEventListener('DOMContentLoaded', function() {
         toggleSingleAcceptButtons();
         toggleBulkButtons();
         syncMyAcceptHeaderCheckbox();
-        syncDepartmentAcceptHeaderCheckbox();
+
+        /*
+        DEPARTMENT HEADER SYNC OFF
+        */
     });
 </script>
 
