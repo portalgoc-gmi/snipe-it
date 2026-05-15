@@ -625,15 +625,11 @@ class BulkAssetsController extends Controller
         if (old('selected_assets') && is_array(old('selected_assets'))) {
             $assets = Asset::findMany(old('selected_assets'));
 
-            [$assignable, $alreadyAssigned] = $assets->partition(function (Asset $asset) {
-                return !$asset->assigned_to;
-            });
-
-            session()->flashInput(['selected_assets' => $assignable->pluck('id')->values()->toArray()]);
+            $alreadyAssigned = collect();
+            session()->flashInput(['selected_assets' => $assets->pluck('id')->values()->toArray()]);
         }
 
-        $do_not_change = ['' => trans('general.do_not_change')];
-        $status_label_list = $do_not_change + Helper::deployableStatusLabelList();
+        $status_label_list = Helper::deployableStatusLabelList();
 
         return view('hardware/bulk-checkout', [
             'statusLabel_list' => $status_label_list,
@@ -663,7 +659,8 @@ class BulkAssetsController extends Controller
             $asset_ids = array_filter($request->input('selected_assets'));
 
             $assets = Asset::findOrFail($asset_ids);
-
+            
+/*
             // Prevent checking out assets that are already checked out
             if ($assets->pluck('assigned_to')->unique()->filter()->isNotEmpty()) {
                 // re-add the asset ids so the assets select is re-populated
@@ -672,6 +669,7 @@ class BulkAssetsController extends Controller
                 return redirect(route('hardware.bulkcheckout.show'))
                     ->with('error', trans('general.error_assets_already_checked_out'));
             }
+*/
 
             // Prevent checking out assets across companies if FMCS enabled
             if (Setting::getSettings()->full_multiple_companies_support && $target->company_id) {
