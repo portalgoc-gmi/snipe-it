@@ -174,6 +174,9 @@ Route::group(
         Route::post('bulkcheckout',
             [BulkAssetsController::class, 'storeCheckout']
         )->name('hardware.bulkcheckout.store');
+        
+        Route::get('bulkcheckin', [BulkAssetsController::class, 'storeCheckin'])
+    		->name('hardware.bulkcheckin.store');
 
     });
 

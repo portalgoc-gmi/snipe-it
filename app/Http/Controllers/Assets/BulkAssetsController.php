@@ -54,8 +54,15 @@ class BulkAssetsController extends Controller
         }
 
         $asset_ids = $request->input('ids');
-
+        
+        if ($request->input('bulk_actions') === 'checkin') {
+	    $request->session()->flashInput(['selected_assets' => $asset_ids]);
+	    return redirect()->route('hardware.bulkcheckin.store');
+	}
+        
         if ($request->input('bulk_actions') === 'checkout') {
+            
+            /*
             $status_check =$this->hasUndeployableStatus($asset_ids);
             if($status_check && $status_check['status'] === true){
 
@@ -64,6 +71,7 @@ class BulkAssetsController extends Controller
 
                 session()->flash('warning', trans('admin/hardware/message.undeployable', ['asset_tags' => $asset_tags]));
             }
+            */
 
             $request->session()->flashInput(['selected_assets' => $asset_ids]);
             return redirect()->route('hardware.bulkcheckout.show');
@@ -724,10 +732,10 @@ class BulkAssetsController extends Controller
 			}
                     
 
-                    // See if there is a status label passed
-                    if ($request->filled('status_id')) {
-                        $asset->status_id = $request->input('status_id');
-                    }
+                    $inTransitStatus = \App\Models\Statuslabel::where('name', 'In Transit')->first();
+                    if ($inTransitStatus) {
+			$asset->status_id = $inTransitStatus->id;
+		    }
 
                     $checkout_success = $asset->checkOut($target, $admin, $checkout_at, $expected_checkin, e($request->input('note')), $asset->name, null);
 
@@ -831,4 +839,43 @@ class BulkAssetsController extends Controller
             ->with('models', $models->pluck(['model']))
             ->with('modelNames', $modelNames);
     }
+    
+    public function storeCheckin(Request $request): RedirectResponse
+	{
+	    $asset_ids = old('selected_assets', []);
+
+	    if (!is_array($asset_ids) || count($asset_ids) === 0) {
+		return redirect()->route('hardware.index')->with('error', 'No assets selected.');
+	    }
+
+	    $assets = Asset::whereIn('id', $asset_ids)->get();
+
+	    foreach ($assets as $asset) {
+
+		if (is_null($asset->assignedTo)) {
+		    continue;
+		}
+
+		$asset->assignedTo()->disassociate();
+		$asset->expected_checkin = null;
+		$asset->last_checkin = now();
+
+		// βάζουμε status "In Archive"
+		$inArchiveId = Statuslabel::where('name', 'In Archive')->value('id');
+		if ($inArchiveId) {
+		    $asset->status_id = $inArchiveId;
+		}
+		
+		$archiveLocationId = \App\Models\Location::where('name', 'Archive')->value('id');
+
+		if ($archiveLocationId) {
+		    $asset->location_id = $archiveLocationId;
+		    $asset->rtd_location_id = $archiveLocationId;
+		}
+
+		$asset->save();
+	    }
+
+	    return redirect()->route('hardware.index')->with('success', 'Bulk checkin completed.');
+	}
 }

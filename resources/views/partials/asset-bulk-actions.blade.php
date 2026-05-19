@@ -31,6 +31,7 @@
             @if((!isset($status)) || (($status != 'Deployed') && ($status != 'Archived')))
                 @can('checkout', \App\Models\Asset::class)
                     <option value="checkout">{{ trans('general.bulk_checkout') }}</option>
+                    <option value="checkin">Bulk Checkin</option>
                 @endcan
             @endif
 
