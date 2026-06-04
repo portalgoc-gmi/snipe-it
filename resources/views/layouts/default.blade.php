@@ -1357,7 +1357,7 @@
                             </li>
                         @endcan
                         @can('index', \App\Models\Asset::class)
-                            <li class="treeview{{ ((request()->is('statuslabels/*') || request()->is(['hardware*', 'maintenances*'])) ? ' active' : '') }}">
+                            <li class="treeview{{ ((request()->is('statuslabels/*') || request()->is('maintenances*') || (request()->is('hardware*') && !request()->is('hardware/requested'))) ? ' active' : '') }}">
                                 <a href="#">
                                     <x-icon type="assets" class="fa-fw" />
                                     <span>{{ trans('general.assets') }}</span>
@@ -1500,10 +1500,7 @@
                                                 {{ trans('general.bulk_checkout') }}
                                             </a>
                                         </li>
-                                        <li{!! (request()->is('hardware/requested') ? ' class="active"' : '') !!}>
-                                            <a href="{{ route('assets.requested') }}">
-                                                {{ trans('general.requested') }}</a>
-                                        </li>
+
                                     @endcan
 
                                     @can('create', \App\Models\Asset::class)
@@ -1776,11 +1773,49 @@
                                 </ul>
                             </li>
                         @endcan
+                        
+                        @if(Auth::check())
+				@php
+				$user = auth()->user();
+
+				$pendingCheckoutsCount = \App\Models\CheckoutRequest::whereNull('canceled_at')
+    ->where('requestable_type', \App\Models\Asset::class)
+    ->when(\Illuminate\Support\Facades\Schema::hasColumn('checkout_requests', 'fulfilled_at'), function ($q) {
+        $q->whereNull('fulfilled_at');
+    })
+    ->whereHasMorph('requestedItem', [\App\Models\Asset::class], function ($q) use ($user) {
+        $q->where('location_id', $user->location_id)
+          ->whereNull('assigned_to')
+          ->whereNull('deleted_at');
+    })
+    ->count();
+
+				$filesToAcceptCount = \App\Models\CheckoutAcceptance::pending()
+				    ->where('assigned_to_id', auth()->id())
+				    ->count();
+				@endphp
+
+			    <li{!! (request()->is('hardware/requested') ? ' class="active"' : '') !!}>
+				<a href="{{ route('assets.requested') }}">
+				    <i class="fas fa-file-import fa-fw"></i>
+				    Pending Checkouts
+				    <span class="badge" id="pending-checkouts-count">{{ $pendingCheckoutsCount }}</span>
+				</a>
+			    </li>
+
+			    <li{!! (request()->is('account/accept') ? ' class="active"' : '') !!}>
+				<a href="{{ route('account.accept') }}">
+				    <i class="fas fa-check-circle fa-fw"></i>
+				    Files to Accept
+				    <span class="badge" id="files-to-accept-count">{{ $filesToAcceptCount }}</span>
+				</a>
+			    </li>
+			@endif
 
                         @can('viewRequestable', \App\Models\Asset::class)
                             <li{!! (request()->is('account/requestable-assets') ? ' class="active"' : '') !!}>
                                 <a href="{{ route('requestable-assets') }}">
-                                    <x-icon type="requestable" class="fa-fw" />
+                                    <i class="fas fa-folder-plus fa-fw"></i>
                                     <span>{{ trans('general.requestable_items') }}</span>
                                 </a>
                             </li>

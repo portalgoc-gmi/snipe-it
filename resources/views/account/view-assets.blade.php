@@ -857,6 +857,7 @@
   @include ('partials.bootstrap-table')
 
   <script nonce="{{ csrf_token() }}">
+    let selectedAssignedAssets = new Set();
     function syncAssignedHeaderCheckbox() {
         let all = document.querySelectorAll('.assigned-asset-check');
         let checked = document.querySelectorAll('.assigned-asset-check:checked');
@@ -899,6 +900,11 @@
 
             document.querySelectorAll('.assigned-asset-check').forEach(function(cb) {
                 cb.checked = checked;
+		if (checked) {
+		    selectedAssignedAssets.add(cb.value);
+		} else {
+		    selectedAssignedAssets.delete(cb.value);
+		}
             });
 
             syncAssignedHeaderCheckbox();
@@ -906,20 +912,44 @@
         }
 
         if (e.target && e.target.matches('.assigned-asset-check')) {
+            if (e.target.checked) {
+		    selectedAssignedAssets.add(e.target.value);
+		} else {
+		    selectedAssignedAssets.delete(e.target.value);
+		}
             syncAssignedHeaderCheckbox();
             toggleSingleReturnButtons();
         }
     });
-
+    
+    function restoreAssignedSelections() {
+	    document.querySelectorAll('.assigned-asset-check').forEach(function(cb) {
+		cb.checked = selectedAssignedAssets.has(cb.value);
+	    });
+	    syncAssignedHeaderCheckbox();
+	    toggleSingleReturnButtons();
+	}
+    
     document.addEventListener('submit', function(e) {
         if (e.target && e.target.id === 'bulkReturnForm') {
-            let checked = document.querySelectorAll('.assigned-asset-check:checked');
+            e.target.querySelectorAll('input.generated-selected-asset').forEach(function(input) {
+	    input.remove();
+	});
 
-            if (checked.length === 0) {
-                e.preventDefault();
-                alert('Please select at least one asset.');
-                return false;
-            }
+	selectedAssignedAssets.forEach(function(assetId) {
+	    let input = document.createElement('input');
+	    input.type = 'hidden';
+	    input.name = 'selected_assets[]';
+	    input.value = assetId;
+	    input.className = 'generated-selected-asset';
+	    e.target.appendChild(input);
+	});
+            
+            if (selectedAssignedAssets.size === 0) {
+		    e.preventDefault();
+		    alert('Please select at least one asset.');
+		    return false;
+		}
         }
     });
 
@@ -927,5 +957,10 @@
         syncAssignedHeaderCheckbox();
         toggleSingleReturnButtons();
     });
+    
+    $('#userAssets').on('post-body.bs.table search.bs.table page-change.bs.table', function () {
+	restoreAssignedSelections();
+});
+
   </script>
 @stop
