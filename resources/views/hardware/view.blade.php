@@ -1454,22 +1454,32 @@ $openReturn = \App\Models\ReturnRequest::where('asset_id', $asset->id)
                             <!-- checked out assets table -->
                             <div class="row">
                                 <div class="col-md-12">
-                                    <table
-                                            data-columns="{{ \App\Presenters\HistoryPresenter::dataTableLayout() }}"
-                                            class="table table-striped snipe-table"
-                                            id="assetHistory_{{  $asset->id }}"
-                                            data-id-table="assetHistory_{{  $asset->id }}"
-                                            data-side-pagination="server"
-                                            data-sort-order="desc"
-                                            data-sort-name="created_at"
-                                            data-export-options='{
-                                                 "fileName": "export-asset-{{  $asset->id }}-history",
-                                                 "ignoreColumn": ["actions","image","change","checkbox","checkincheckout","icon"]
-                                               }'
-                                            data-url="{{ route('api.activity.index', ['item_id' => $asset->id, 'item_type' => 'asset']) }}"
-                                            data-cookie-id-table="assetHistory_{{  $asset->id }}"
-                                            data-cookie="true">
-                                    </table>
+					
+					<table
+					    data-toggle="table"
+					    class="table table-striped snipe-table"
+					    id="assetHistory_{{ $asset->id }}"
+					    data-id-table="assetHistory_{{ $asset->id }}"
+					    data-side-pagination="server"
+					    data-sort-order="desc"
+					    data-sort-name="created_at"
+					    data-url="{{ route('api.activity.index', ['item_id' => $asset->id, 'item_type' => 'asset']) }}"
+					    data-cookie-id-table="assetHistory_{{ $asset->id }}"
+					    data-cookie="true">
+					    <thead>
+					    <tr>
+						<th data-field="icon" data-formatter="iconFormatter"></th>
+						<th data-field="created_at" data-sortable="true" data-formatter="dateDisplayFormatter">Created At</th>
+						<th data-field="created_by" data-formatter="usersLinkObjFormatter">Created By</th>
+						<th data-field="action_type">Action</th>
+						<th data-field="item" data-formatter="polymorphicItemFormatter">Item</th>
+						<th data-field="target" data-formatter="polymorphicItemFormatter">Target</th>
+						<th data-field="note" data-formatter="notesFormatter">Notes</th>
+						<th data-field="log_meta" data-formatter="changeLogFormatter">Changed</th>
+					    </tr>
+					    </thead>
+					</table>
+									    
                                 </div>
                             </div> <!-- /.row -->
                         </div> <!-- /.tab-pane history -->

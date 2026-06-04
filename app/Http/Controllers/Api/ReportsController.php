@@ -20,7 +20,14 @@ class ReportsController extends Controller
      */
     public function index(Request $request) : JsonResponse | array
     {
-        $this->authorize('activity.view');
+        $user = auth()->user();
+        $isWarehouseKeeper = $user && $user->groups()
+	    ->where('name', 'Warehouse keeper')
+	    ->exists();
+
+	if (!$isWarehouseKeeper) {
+	    $this->authorize('activity.view');
+	}
 
         $actionlogs = Actionlog::with('item', 'user', 'adminuser', 'target', 'location');
 
