@@ -508,6 +508,9 @@ Route::middleware('auth')->group(function () {
         ->whereUuid('id')
         ->name('notifications.read');
 
+    Route::post('/notifications/read-all', [NotificationsController::class, 'markAllRead'])
+    ->name('notifications.read-all');
+
     Route::get('/notifications/{id}/open', [NotificationsController::class, 'open'])
         ->whereUuid('id')
         ->name('notifications.open');

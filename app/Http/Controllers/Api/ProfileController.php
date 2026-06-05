@@ -51,7 +51,9 @@ class ProfileController extends Controller
      */
     public function requestedAssets() :  array
     {
-        $checkoutRequests = CheckoutRequest::where('user_id', '=', auth()->id())->get();
+        $checkoutRequests = CheckoutRequest::where('user_id', '=', auth()->id())
+    ->orderByDesc('created_at')
+    ->get();
 
         $results = array();
         $show_field = array();
@@ -70,6 +72,11 @@ class ProfileController extends Controller
             // Make sure the asset and request still exist
             if ($checkoutRequest && $checkoutRequest->itemRequested()) {
                 $assets = [
+                    'date_group' => $checkoutRequest->created_at->isToday()
+			    ? 'Today (' . $checkoutRequest->created_at->format('Y-m-d') . ')'
+			    : ($checkoutRequest->created_at->isYesterday()
+				? 'Yesterday (' . $checkoutRequest->created_at->format('Y-m-d') . ')'
+				: $checkoutRequest->created_at->format('F Y')),
                     'image' => e($checkoutRequest->itemRequested()->present()->getImageUrl()),
                     'name' => e($checkoutRequest->itemRequested()->display_name),
                     'type' => e($checkoutRequest->itemType()),

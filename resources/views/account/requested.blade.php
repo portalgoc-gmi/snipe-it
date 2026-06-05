@@ -83,6 +83,29 @@ function requestedTransferFormatter(value, row) {
 
     return `<a class="btn btn-primary btn-sm" href="${url}">Checkout</a>`;
 }
+
+$('#userRequests').on('post-body.bs.table', function () {
+    let lastGroup = null;
+
+    $('#userRequests tbody tr').each(function () {
+        const index = $(this).data('index');
+        const row = $('#userRequests').bootstrapTable('getData')[index];
+
+        if (!row || !row.date_group) return;
+
+        if (row.date_group !== lastGroup) {
+            $(this).before(
+                `<tr class="date-group-row">
+                    <td colspan="20" style="background:#f4f4f4;font-weight:bold;padding:10px;">
+                        ${row.date_group}
+                    </td>
+                </tr>`
+            );
+            lastGroup = row.date_group;
+        }
+    });
+});
+
 </script>
 
 @stop

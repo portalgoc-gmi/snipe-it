@@ -202,6 +202,13 @@ class NotificationsController extends Controller
 
         return redirect()->back();
     }
+    
+    public function markAllRead()
+	{
+	    auth()->user()->unreadNotifications->markAsRead();
+
+	    return redirect()->back()->with('success', 'All notifications marked as read.');
+	}
 
     public function destroy($id)
     {

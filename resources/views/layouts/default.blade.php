@@ -1778,18 +1778,6 @@
 				@php
 				$user = auth()->user();
 
-				$pendingCheckoutsCount = \App\Models\CheckoutRequest::whereNull('canceled_at')
-    ->where('requestable_type', \App\Models\Asset::class)
-    ->when(\Illuminate\Support\Facades\Schema::hasColumn('checkout_requests', 'fulfilled_at'), function ($q) {
-        $q->whereNull('fulfilled_at');
-    })
-    ->whereHasMorph('requestedItem', [\App\Models\Asset::class], function ($q) use ($user) {
-        $q->where('location_id', $user->location_id)
-          ->whereNull('assigned_to')
-          ->whereNull('deleted_at');
-    })
-    ->count();
-
 				$filesToAcceptCount = \App\Models\CheckoutAcceptance::pending()
 				    ->where('assigned_to_id', auth()->id())
 				    ->count();
@@ -1799,7 +1787,7 @@
 				<a href="{{ route('assets.requested') }}">
 				    <i class="fas fa-file-import fa-fw"></i>
 				    Pending Checkouts
-				    <span class="badge" id="pending-checkouts-count">{{ $pendingCheckoutsCount }}</span>
+				    
 				</a>
 			    </li>
 

@@ -46,6 +46,10 @@
                                     <th class="col-md-1">Asset ID</th>
                                     <th class="col-md-2">{{ trans('general.name') }}</th>
                                     <th class="col-md-2">{{ trans('admin/hardware/table.location') }}</th>
+                                    
+                                    <th class="col-md-2">Warehouse position</th>
+                                    <th class="col-md-2">Patient Status</th>
+                                    
                                     <th class="col-md-2">{{ trans('admin/hardware/form.expected_checkin') }}</th>
                                     <th class="col-md-3">{{ trans('admin/hardware/table.requesting_user') }}</th>
                                     <th class="col-md-2">{{ trans('admin/hardware/table.requested_date') }}</th>
@@ -61,10 +65,12 @@
                                     @endif
 
                                     @php
-                                        $reqUser = $request->requestingUser();
-                                    @endphp
+                                    	$reqUser = $request->requestingUser();
+                                    	$asset = $request->requestable;
+                                    	$isDeceased = strtolower($asset->_snipeit_patient_status_5 ?? '') === 'deceased';
+				    @endphp
 
-                                    <tr data-request-id="{{ $request->id }}">
+                                    <tr data-request-id="{{ $request->id }}" class="{{ $isDeceased ? 'deceased-row' : '' }}">
                                         
 					<td>
 					    <input type="checkbox" class="requested-check" name="selected_requests[]" value="{{ $request->id }}">
@@ -74,6 +80,8 @@
                                         <td>{{ $request->requestable->asset_tag ?? '' }}</td>
                                         <td>{{ $request->requestable->name ?? '' }}</td>
                                         <td>{{ $request->location()->name ?? '' }}</td>
+                                        <td>{{ $asset->_snipeit_warehouse_position_2 ?? '' }}</td>
+                                        <td>{{ $asset->_snipeit_patient_status_5 ?? '' }}</td>
                                         <td>{{ $request->expected_checkin ?? '' }}</td>
                                         <td>{{ $reqUser->name ?? '' }}</td>
                                         <td>{{ $request->created_at }}</td>
@@ -106,6 +114,12 @@
         </div>
     </div>
 </div>
+
+<style>
+  #requestedAssets tr.deceased-row td {
+    background-color: #d9c2f0 !important;
+  }
+</style>
 @stop
 
 @section('moar_scripts')

@@ -4,9 +4,20 @@
 Notifications
 @endsection
 
+@section('header_right')
+<form method="POST" action="{{ route('notifications.read-all') }}" style="display:inline;">
+  @csrf
+  <button class="btn btn-sm btn-primary">
+    <i class="fas fa-check-double"></i> Mark all as read
+  </button>
+</form>
+@endsection
+
 @section('content')
 <div class="box box-primary">
   <div class="box-body">
+    
+
     <h3>Pending</h3>
 
     @forelse ($pending as $notification)
