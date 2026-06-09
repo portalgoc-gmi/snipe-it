@@ -449,11 +449,19 @@
                     <caption id="userAssetToolbar" class="tableCaption">
 			    <div>{{ trans('general.assets') }}</div>
 
-			    <form method="POST" action="{{ route('account.assets.bulk-return') }}" id="bulkReturnForm" style="margin-top: 10px;">
+			    <form method="POST" action="{{ route('account.assets.bulk-return') }}" id="bulkReturnForm" style="margin-top: 10px; display:flex; gap:5px;">
 				@csrf
-				<button type="submit" class="btn btn-warning" id="bulkReturnSelectedBtn">
+				
+				<button type="button" class="btn btn-warning" id="confirmBulkArchiveBtn">
 				    Return Selected to Archive
 				</button>
+
+				<button type="button"
+					class="btn btn-primary"
+					id="confirmBulkDrgBtn">
+				    Checkout Selected to DRG
+				</button>
+
 			    </form>
 			</caption>
 
@@ -588,10 +596,28 @@
 
 			    @if(!empty($asset->can_pickup))
 				@if(!$openReturn)
-				    <form method="POST" action="{{ route('returns.store', $asset->id) }}" style="display:inline;">
+				    <form method="POST" action="{{ route('returns.store', $asset->id) }}" id="singleArchiveForm{{ $asset->id }}" style="display:inline;">
 					@csrf
-					<button type="submit" class="btn btn-xs btn-warning single-return-btn">Return to Archive</button>
+					<button type="button"
+						class="btn btn-xs btn-warning single-return-btn confirm-single-action"
+						data-action="archive"
+						data-form-id="singleArchiveForm{{ $asset->id }}"
+						data-asset="{{ $asset->asset_tag }} - {{ $asset->name }}">
+					    Return to Archive
+					</button>
 				    </form>
+				    
+				    <form method="POST" action="{{ route('account.assets.bulk-checkout-drg') }}" id="singleDrgForm{{ $asset->id }}" style="display:inline;">
+				    @csrf
+				    <input type="hidden" name="selected_assets[]" value="{{ $asset->id }}">
+				    <button type="button"
+					class="btn btn-xs btn-primary single-drg-btn confirm-single-action"
+					data-action="drg"
+					data-form-id="singleDrgForm{{ $asset->id }}"
+					data-asset="{{ $asset->asset_tag }} - {{ $asset->name }}">
+				    Checkout to DRG
+				</button>
+				</form>
 				@elseif(!empty($openReturn->received_at))
 				    <span class="label label-success">
 					Received by Warehouse
@@ -851,6 +877,25 @@
       </div><!-- nav-tabs-custom -->
     </div>
   </div>
+  
+<div class="modal fade" id="confirmDrgModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-blue">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">Confirm Checkout to DRG</h4>
+      </div>
+      <div class="modal-body">
+        <p>You selected the following files:</p>
+        <ul id="drgSelectedList"></ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">No</button>
+        <button type="button" class="btn btn-primary" id="submitConfirmActionBtn">Yes, continue</button>
+      </div>
+    </div>
+  </div>
+</div>
 @stop
 
 @section('moar_scripts')
@@ -879,7 +924,7 @@
         let selectedCount = document.querySelectorAll('.assigned-asset-check:checked').length;
         let disableSingles = selectedCount >= 1;
 
-        document.querySelectorAll('.single-return-btn').forEach(function(btn) {
+        document.querySelectorAll('.single-return-btn, .single-drg-btn').forEach(function(btn) {
             if (disableSingles) {
                 btn.classList.add('disabled');
                 btn.disabled = true;
@@ -952,15 +997,80 @@
 		}
         }
     });
+    
+    let formToSubmit = null;
 
+function setModal(title, yesText) {
+    document.querySelector('#confirmDrgModal .modal-title').innerText = title;
+    document.getElementById('submitConfirmActionBtn').innerText = yesText;
+}
+
+function fillSelectedList() {
+    let list = document.getElementById('drgSelectedList');
+    list.innerHTML = '';
+
+    document.querySelectorAll('.assigned-asset-check:checked').forEach(function(cb) {
+        let row = cb.closest('tr');
+        let li = document.createElement('li');
+        li.textContent = row.children[4].innerText.trim() + ' - ' + row.children[5].innerText.trim();
+        list.appendChild(li);
+    });
+}
+
+document.getElementById('confirmBulkArchiveBtn')?.addEventListener('click', function () {
+    if (selectedAssignedAssets.size === 0) return alert('Please select at least one asset.');
+
+    formToSubmit = document.getElementById('bulkReturnForm');
+    formToSubmit.action = "{{ route('account.assets.bulk-return') }}";
+
+    setModal('Confirm Return to Archive', 'Yes, return to Archive');
+    fillSelectedList();
+    $('#confirmDrgModal').modal('show');
+});
+
+document.getElementById('confirmBulkDrgBtn')?.addEventListener('click', function () {
+    if (selectedAssignedAssets.size === 0) return alert('Please select at least one asset.');
+
+    formToSubmit = document.getElementById('bulkReturnForm');
+    formToSubmit.action = "{{ route('account.assets.bulk-checkout-drg') }}";
+
+    setModal('Confirm Checkout to DRG', 'Yes, checkout to DRG');
+    fillSelectedList();
+    $('#confirmDrgModal').modal('show');
+});
+
+document.addEventListener('click', function(e) {
+    let btn = e.target.closest('.confirm-single-action');
+    if (!btn) return;
+
+    formToSubmit = document.getElementById(btn.dataset.formId);
+
+    setModal(
+        btn.dataset.action === 'drg' ? 'Confirm Checkout to DRG' : 'Confirm Return to Archive',
+        btn.dataset.action === 'drg' ? 'Yes, checkout to DRG' : 'Yes, return to Archive'
+    );
+
+    document.getElementById('drgSelectedList').innerHTML = '<li>' + btn.dataset.asset + '</li>';
+    $('#confirmDrgModal').modal('show');
+});
+
+document.getElementById('submitConfirmActionBtn')?.addEventListener('click', function () {
+    if (formToSubmit) formToSubmit.submit();
+});        
+    
     document.addEventListener('DOMContentLoaded', function() {
         syncAssignedHeaderCheckbox();
         toggleSingleReturnButtons();
     });
     
-    $('#userAssets').on('post-body.bs.table search.bs.table page-change.bs.table', function () {
-	restoreAssignedSelections();
-});
+    $('#userAssets').on(
+	    'post-body.bs.table search.bs.table page-change.bs.table refresh.bs.table',
+	    function () {
+		setTimeout(function () {
+		    restoreAssignedSelections();
+		}, 100);
+	    }
+	);
 
   </script>
 @stop

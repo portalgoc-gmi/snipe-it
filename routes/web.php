@@ -405,6 +405,9 @@ Route::group(['prefix' => 'account', 'middleware' => ['auth']], function () {
     
     Route::post('assets/bulk-return', [ViewAssetsController::class, 'bulkReturnToArchive'])
     	->name('account.assets.bulk-return');
+
+    Route::post('assets/bulk-checkout-drg', [ViewAssetsController::class, 'bulkCheckoutToDrg'])
+    ->name('account.assets.bulk-checkout-drg');
     
     Route::get('requested', [ViewAssetsController::class, 'getRequestedAssets'])
         ->name('account.requested')

@@ -488,4 +488,48 @@ class ViewAssetsController extends Controller
 
 	    return redirect()->back()->with('success', $createdCount . ' return requests created successfully.');
 	}
+	
+	public function bulkCheckoutToDrg(Request $request): RedirectResponse
+	{
+	    $ids = $request->input('selected_assets', []);
+
+	    if (!is_array($ids) || count($ids) === 0) {
+		return redirect()->back()->with('error', 'Please select at least one asset.');
+	    }
+
+	    $drgUser = \App\Models\User::find(21);
+
+	    if (!$drgUser) {
+		return redirect()->back()->with('error', 'DRG user not found.');
+	    }
+
+	    $assets = Asset::whereIn('id', $ids)->get();
+
+	    $checkedOutCount = 0;
+
+	    foreach ($assets as $asset) {
+		try {
+		    if (!empty($asset->open_return_id)) {
+		        continue;
+		    }
+
+		    $success = $asset->checkOut(
+		        $drgUser,
+		        auth()->user(),
+		        date('Y-m-d H:i:s'),
+		        null,
+		        'Bulk checkout to DRG',
+		        $asset->name
+		    );
+
+		    if ($success) {
+		        $checkedOutCount++;
+		    }
+		} catch (\Throwable $e) {
+		    report($e);
+		}
+	    }
+
+	    return redirect()->back()->with('success', $checkedOutCount . ' assets checked out to DRG.');
+	}
 }
