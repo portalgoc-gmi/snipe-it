@@ -42,6 +42,7 @@
 		  <th>{{ trans('general.category')}}</th>
 		  <th>{{ trans('general.qty') }}</th>
 		  <th>{{ trans('general.serial_number')}}</th>
+		  <th>Checked Out By</th>
 		  <th>{{ trans('table.actions')}}</th>
 	    </tr>
           </thead>
@@ -64,6 +65,26 @@
                   <td>{{ $acceptance->qty ?? '1' }}</td>
                   <td>{{ $acceptance->checkoutable->serial ?? '' }}</td>
                   <td>
+                  
+                  	@php
+			  $checkedOutByLog = \App\Models\Actionlog::where('item_type', $acceptance->checkoutable_type)
+			      ->where('item_id', $acceptance->checkoutable_id)
+			      ->where('action_type', 'checkout')
+			      ->where('target_id', $acceptance->assigned_to_id)
+			      ->where('target_type', \App\Models\User::class)
+			      ->latest()
+			      ->first();
+
+			  $checkedOutByUser = $checkedOutByLog?->created_by
+			      ? \App\Models\User::find($checkedOutByLog->created_by)
+			      : null;
+			@endphp
+
+			{{ $checkedOutByUser?->first_name ?? $checkedOutByUser?->username ?? 'N/A' }}
+						  
+		  </td>
+                  
+                  <td>
                     <a href="{{ route('account.accept.item', $acceptance) }}" class="btn btn-theme btn-sm single-accept-btn">
                       {{ trans('general.accept_decline') }}
                     </a>
@@ -71,6 +92,7 @@
                 @else
                   <td>-----</td>
                   <td>{{ trans('general.error_user_company_accept_view') }}</td>
+                  <td></td>
                   <td></td>
                   <td></td>
                   <td></td>

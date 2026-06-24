@@ -456,11 +456,13 @@
 				    Return Selected to Archive
 				</button>
 
+				@if(auth()->user()->username !== 'DRG')
 				<button type="button"
 					class="btn btn-primary"
 					id="confirmBulkDrgBtn">
 				    Checkout Selected to DRG
 				</button>
+				@endif
 
 			    </form>
 			</caption>
@@ -607,7 +609,8 @@
 					</button>
 				    </form>
 				    
-				    <form method="POST" action="{{ route('account.assets.bulk-checkout-drg') }}" id="singleDrgForm{{ $asset->id }}" style="display:inline;">
+				@if(auth()->user()->username !== 'DRG')
+				<form method="POST" action="{{ route('account.assets.bulk-checkout-drg') }}" id="singleDrgForm{{ $asset->id }}" style="display:inline;">
 				    @csrf
 				    <input type="hidden" name="selected_assets[]" value="{{ $asset->id }}">
 				    <button type="button"
@@ -615,9 +618,11 @@
 					data-action="drg"
 					data-form-id="singleDrgForm{{ $asset->id }}"
 					data-asset="{{ $asset->asset_tag }} - {{ $asset->name }}">
-				    Checkout to DRG
-				</button>
+					Checkout to DRG
+				    </button>
 				</form>
+				@endif
+				
 				@elseif(!empty($openReturn->received_at))
 				    <span class="label label-success">
 					Received by Warehouse
