@@ -1779,9 +1779,13 @@
 				$user = auth()->user();
 
 				$filesToAcceptCount = \App\Models\CheckoutAcceptance::pending()
-				    ->where('assigned_to_id', auth()->id())
-				    ->count();
-				@endphp
+    ->where('assigned_to_id', auth()->id())
+    ->whereHasMorph('checkoutable', [\App\Models\Asset::class], function ($query) {
+        $query->where('assigned_type', \App\Models\User::class)
+              ->where('assigned_to', auth()->id());
+    })
+    ->count();
+@endphp
 
 			    <li{!! (request()->is('hardware/requested') ? ' class="active"' : '') !!}>
 				<a href="{{ route('assets.requested') }}">

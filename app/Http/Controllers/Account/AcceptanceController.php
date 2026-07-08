@@ -39,11 +39,12 @@ class AcceptanceController extends Controller
 	    $user = auth()->user();
 
 	    $myAcceptances = CheckoutAcceptance::pending()
-		->where('assigned_to_id', $user->id)
-		->whereHasMorph('checkoutable', [\App\Models\Asset::class], function ($query) use ($user) {
-		    $query->where('location_id', $user->location_id);
-		})
-		->get();
+    ->where('assigned_to_id', $user->id)
+    ->whereHasMorph('checkoutable', [\App\Models\Asset::class], function ($query) use ($user) {
+        $query->where('assigned_type', \App\Models\User::class)
+              ->where('assigned_to', $user->id);
+    })
+    ->get();
 
 	    $departmentAcceptances = CheckoutAcceptance::pending()
 		->where('assigned_to_id', '!=', $user->id)
