@@ -27,6 +27,22 @@ class CreateCheckoutRequestAction
         if (!Company::isCurrentUserHasAccess($asset)) {
             throw new AuthorizationException();
         }
+        
+        $openRequest = $asset->requests()
+	    ->whereNull('canceled_at')
+	    ->whereNull('fulfilled_at')
+	    ->with('user')
+	    ->latest()
+	    ->first();
+	    
+	if ($openRequest) {
+	    $requestedBy = $openRequest->user?->display_name ?? 'another user';
+
+	    throw new \RuntimeException(
+		'This file has already been requested by '.$requestedBy.'.'
+	    );
+	}
+
 	$requester = auth()->user();
         $data['item'] = $asset;
         $data['target'] = $requester;

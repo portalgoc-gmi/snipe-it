@@ -247,6 +247,7 @@ class ViewAssetsController extends Controller
         } else {
             $openRequest = $item->requests()
 		    ->whereNull('canceled_at')
+		    ->whereNull('fulfilled_at')
 		    ->with('user')
 		    ->latest()
 		    ->first();
@@ -310,6 +311,7 @@ class ViewAssetsController extends Controller
 		}
 	    $openRequest = $asset->requests()
 		    ->whereNull('canceled_at')
+		    ->whereNull('fulfilled_at')
 		    ->with('user')
 		    ->latest()
 		    ->first();
@@ -367,8 +369,10 @@ class ViewAssetsController extends Controller
 
 	    foreach ($assets as $asset) {
 		    if (!empty($requester?->location_id) && (int) $asset->location_id === (int) $requester->location_id) {
-			continue;
-		    }
+			    $skippedCount++;
+			    $skippedFiles[] = $asset->asset_tag . ' - already in your location';
+			    continue;
+			}
 		    
 		    $hasOpenReturn = ReturnRequest::where('asset_id', $asset->id)
 			    ->whereNull('canceled_at')
@@ -376,18 +380,21 @@ class ViewAssetsController extends Controller
 			    ->exists();
 
 			if ($hasOpenReturn) {
+			    $skippedCount++;
+			    $skippedFiles[] = $asset->asset_tag . ' - has an open return request';
 			    continue;
 			}
 		    
 		    $openRequest = $asset->requests()
 			    ->whereNull('canceled_at')
+			    ->whereNull('fulfilled_at')
 			    ->with('user')
 			    ->latest()
 			    ->first();
 
 			if ($openRequest) {
 			    $skippedCount++;
-			    $skippedFiles[] = $asset->asset_tag . ' requested by ' . ($openRequest->user?->display_name ?? 'another user');
+			    $skippedFiles[] = $asset->asset_tag . ' - requested by ' . ($openRequest->user?->display_name ?? 'another user');
 			    continue;
 			}
 			
@@ -395,8 +402,10 @@ class ViewAssetsController extends Controller
 			CreateCheckoutRequestAction::run($asset, $requester, false);
 			$requestedCount++;
 		    } catch (\Exception $e) {
-			report($e);
-		    }
+			    report($e);
+			    $skippedCount++;
+			    $skippedFiles[] = $asset->asset_tag . ' - ' . $e->getMessage();
+			}
 		}
 
 	    if (
@@ -431,16 +440,20 @@ class ViewAssetsController extends Controller
 
 	    
 	    if ($requestedCount === 0) {
-		    return redirect()->back()->with('error', 'No requests were created. Some files may already be requested.');
-		}
+		    $message = 'No requests were created. Skipped files: ' . implode(' | ', $skippedFiles);
+
+		    return redirect()->back()->with('error', $message);
+		    }
 
 		$message = $requestedCount . ' requests created successfully.';
 
 		if ($skippedCount > 0) {
-		    $message .= ' WARNING: ' . $skippedCount . ' files skipped: ' . implode(', ', $skippedFiles) . '.';
+		    $message .= ' ' . $skippedCount . ' files skipped: ' . implode(' | ', $skippedFiles);
+
+		    return redirect()->route('requestable-assets')->with('warning', $message);
 		}
 
-		return redirect()->route('requestable-assets')->with('warning', $message);
+		return redirect()->route('requestable-assets')->with('success', $message);
 	    
 	}
     
