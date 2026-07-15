@@ -245,6 +245,20 @@ class ViewAssetsController extends Controller
 
             return redirect()->back()->with('success')->with('success', trans('admin/hardware/message.requests.canceled'));
         } else {
+            $openRequest = $item->requests()
+		    ->whereNull('canceled_at')
+		    ->with('user')
+		    ->latest()
+		    ->first();
+
+		if ($openRequest) {
+		    $requestedBy = $openRequest->user?->display_name ?? 'another user';
+
+		    return redirect()->back()->with(
+			'error',
+			'This file has already been requested by '.$requestedBy.'.'
+		    );
+		}
             $item->request();
             if (($settings->alert_email != '') && ($settings->alerts_enabled == '1') && (! config('app.lock_passwords'))) {
                 $logaction->logaction('requested');
@@ -294,7 +308,21 @@ class ViewAssetsController extends Controller
 		if ($hasOpenReturn) {
 		    return redirect()->back()->with('error', 'This asset has an open return request.');
 		}
-	    
+	    $openRequest = $asset->requests()
+		    ->whereNull('canceled_at')
+		    ->with('user')
+		    ->latest()
+		    ->first();
+
+		if ($openRequest) {
+		    $requestedBy = $openRequest->user?->display_name ?? 'another user';
+
+		    return redirect()->back()->with(
+			'error',
+			'This file has already been requested by '.$requestedBy.'.'
+		    );
+		}
+
 	    try {
 		CreateCheckoutRequestAction::run($asset, $user);
 		return redirect()->route('requestable-assets')->with('success')->with('success', trans('admin/hardware/message.requests.success'));
@@ -334,6 +362,8 @@ class ViewAssetsController extends Controller
 	    $location = $assets->first()->location;
 	    $requester = auth()->user();
 	    $requestedCount = 0;
+	    $skippedCount = 0;
+	    $skippedFiles = [];
 
 	    foreach ($assets as $asset) {
 		    if (!empty($requester?->location_id) && (int) $asset->location_id === (int) $requester->location_id) {
@@ -349,6 +379,18 @@ class ViewAssetsController extends Controller
 			    continue;
 			}
 		    
+		    $openRequest = $asset->requests()
+			    ->whereNull('canceled_at')
+			    ->with('user')
+			    ->latest()
+			    ->first();
+
+			if ($openRequest) {
+			    $skippedCount++;
+			    $skippedFiles[] = $asset->asset_tag . ' requested by ' . ($openRequest->user?->display_name ?? 'another user');
+			    continue;
+			}
+			
 		    try {
 			CreateCheckoutRequestAction::run($asset, $requester, false);
 			$requestedCount++;
@@ -387,7 +429,19 @@ class ViewAssetsController extends Controller
 		}
 	    }
 
-	    return redirect()->route('requestable-assets')->with('success', 'Requests created successfully.');
+	    
+	    if ($requestedCount === 0) {
+		    return redirect()->back()->with('error', 'No requests were created. Some files may already be requested.');
+		}
+
+		$message = $requestedCount . ' requests created successfully.';
+
+		if ($skippedCount > 0) {
+		    $message .= ' WARNING: ' . $skippedCount . ' files skipped: ' . implode(', ', $skippedFiles) . '.';
+		}
+
+		return redirect()->route('requestable-assets')->with('warning', $message);
+	    
 	}
     
     public function destroy(Asset $asset): RedirectResponse

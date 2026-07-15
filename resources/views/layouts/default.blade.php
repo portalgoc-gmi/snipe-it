@@ -1026,7 +1026,27 @@
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
     <script src="{{ url(asset('js/html5shiv.js')) }}" nonce="{{ csrf_token() }}"></script>
     <script src="{{ url(asset('js/respond.js')) }}" nonce="{{ csrf_token() }}"></script>
+    
+    <style>
+	@media (min-width: 768px) {
+	    body.sidebar-mini.sidebar-collapse .custom-sidebar-text {
+		display: none !important;
+	    }
 
+	    body.sidebar-mini.sidebar-collapse .custom-accept-link {
+		position: relative;
+	    }
+
+	    body.sidebar-mini.sidebar-collapse .custom-accept-link #files-to-accept-count {
+		position: absolute !important;
+		top: 5px !important;
+		right: 4px !important;
+		font-size: 9px !important;
+		min-width: 16px !important;
+		padding: 2px 4px !important;
+	    }
+	}
+	</style>
 
 </head>
 
@@ -1788,20 +1808,19 @@
 @endphp
 
 			    <li{!! (request()->is('hardware/requested') ? ' class="active"' : '') !!}>
-				<a href="{{ route('assets.requested') }}">
-				    <i class="fas fa-file-import fa-fw"></i>
-				    Pending Checkouts
-				    
-				</a>
-			    </li>
-
-			    <li{!! (request()->is('account/accept') ? ' class="active"' : '') !!}>
-				<a href="{{ route('account.accept') }}">
-				    <i class="fas fa-check-circle fa-fw"></i>
-				    Files to Accept
-				    <span class="badge" id="files-to-accept-count">{{ $filesToAcceptCount }}</span>
-				</a>
-			    </li>
+				    <a href="{{ route('assets.requested') }}">
+					<i class="fas fa-file-import fa-fw"></i>
+					<span class="custom-sidebar-text">Pending Checkouts</span>
+				    </a>
+				</li>
+   
+				<li{!! (request()->is('account/accept') ? ' class="active"' : '') !!}>
+				    <a href="{{ route('account.accept') }}" class="custom-accept-link">
+					<i class="fas fa-check-circle fa-fw"></i>
+					<span class="custom-sidebar-text">Files to Accept</span>
+					<span class="badge" id="files-to-accept-count">{{ $filesToAcceptCount }}</span>
+				    </a>
+				</li>
 			@endif
 
                         @can('viewRequestable', \App\Models\Asset::class)
