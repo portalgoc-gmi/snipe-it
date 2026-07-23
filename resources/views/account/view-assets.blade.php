@@ -10,7 +10,7 @@
 @section('content')
 
     @if (!request()->filled('user_id') || auth()->user()->id == $user->id)
-        @if ($acceptanceQuantity = \App\Models\CheckoutAcceptance::forUser(Auth::user())->pending()->sum('qty'))
+        @if ($acceptanceQuantity = \App\Models\CheckoutAcceptance::forUser(Auth::user())->pending()->count())
           <div class="row">
             <div class="col-md-12">
               <div class="alert alert alert-warning fade in">
@@ -74,9 +74,9 @@
                 <x-icon type="assets" class="fa-2x" />
               </span>
               <span class="hidden-xs hidden-sm">
-                {{ trans('general.assets') }}
-                {!! ($user->assets()->AssetsForShow()->count() > 0 ) ? '<span class="badge badge-secondary">'.number_format($user->assets()->AssetsForShow()->count()).'</span>' : '' !!}
-            </span>
+		        {{ trans('general.assets') }}
+		        {!! ($visibleAssetsCount > 0) ? '<span class="badge badge-secondary">'.number_format($visibleAssetsCount).'</span>' : '' !!}
+		    </span>
             </a>
           </li>
 
@@ -541,6 +541,9 @@
                       $counter = 1
                     @endphp
                     @foreach ($user->assets as $asset)
+                    @if(in_array((int) $asset->id, $pendingAcceptanceAssetIds, true))
+			    @continue
+			@endif
                       <tr>
 			  <td>
 			    @if(!empty($asset->can_pickup) && empty($asset->open_return_id))

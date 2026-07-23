@@ -28,6 +28,10 @@ use App\Helpers\Helper;
 use App\Models\Statuslabel;
 use Illuminate\Support\Facades\Auth;
 use App\Notifications\AssetDeclinedForRecheckoutNotification;
+use App\Enums\ActionType;
+use App\Models\Actionlog;
+use App\Models\Asset;
+
 
 class AcceptanceController extends Controller
 {
@@ -286,6 +290,27 @@ class AcceptanceController extends Controller
 		    }
 
 		    $item->save();
+		    
+		    $declineNote = trim((string) $request->input('note'));
+
+			$logaction = new Actionlog();
+			$logaction->item_id = $item->id;
+			$logaction->item_type = Asset::class;
+			$logaction->created_by = auth()->id();
+			$logaction->created_at = now();
+
+			if (!empty(auth()->user()?->location_id)) {
+			    $logaction->location_id = auth()->user()->location_id;
+			}
+
+			$logaction->target_id = auth()->id();
+			$logaction->target_type = User::class;
+
+			$logaction->note = $declineNote !== ''
+			    ? 'Checkout declined by DRG. Comment: ' . $declineNote
+			    : 'Checkout declined by DRG.';
+
+			$logaction->logaction(ActionType::Declined);
 
 		    $sender = null;
 		    $lastCheckoutLog = $item->assetlog()

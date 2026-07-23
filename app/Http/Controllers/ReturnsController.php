@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
 use App\Events\CheckoutableCheckedIn;
 use App\Models\Location;
+use App\Models\CheckoutAcceptance;
+use App\Enums\ActionType;
+use App\Models\Actionlog;
+
 
 class ReturnsController extends Controller
 {
@@ -66,6 +70,21 @@ class ReturnsController extends Controller
     public function store(Request $request, Asset $asset)
     {
         $user = auth()->user();
+        
+        $hasPendingAcceptance = CheckoutAcceptance::query()
+	    ->where('checkoutable_type', Asset::class)
+	    ->where('checkoutable_id', $asset->id)
+	    ->where('assigned_to_id', $asset->assigned_to)
+	    ->whereNull('accepted_at')
+	    ->whereNull('declined_at')
+	    ->exists();
+
+	if ($hasPendingAcceptance) {
+	    return back()->with(
+		'error',
+		'This file must be accepted before it can be returned to Archive.'
+	    );
+	}
 
         $exists = ReturnRequest::where('asset_id', $asset->id)
             ->whereNull('canceled_at')
@@ -82,6 +101,19 @@ class ReturnsController extends Controller
 	    'requested_at'  => now(),
 	    'in_transit_at' => now(),
 	]);
+	
+	$logaction = new Actionlog();
+	$logaction->item_id = $asset->id;
+	$logaction->item_type = Asset::class;
+	$logaction->created_by = $user?->id;
+	$logaction->created_at = now();
+
+	if (!empty($user?->location_id)) {
+	    $logaction->location_id = $user->location_id;
+	}
+
+	$logaction->note = 'Return to Archive requested — awaiting Archive acceptance.';
+	$logaction->logaction(ActionType::Requested);
 
 	$inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
 	if ($inTransitId) {
@@ -114,7 +146,22 @@ class ReturnsController extends Controller
 
 	    $return->received_at = now();
 	    $return->save();
+	    
+	    $asset = $return->asset;
 
+	    $logaction = new Actionlog();
+	    $logaction->item_id = $asset->id;
+            $logaction->item_type = Asset::class;
+            $logaction->created_by = $user?->id;
+	    $logaction->created_at = now();
+
+	    if (!empty($user?->location_id)) {
+		    $logaction->location_id = $user->location_id;
+	     }
+
+	     $logaction->note = 'Return received by Archive.';
+	     $logaction->logaction(ActionType::Accepted);
+	    
 	    $requester = $return->requester;
 	    if ($requester) {
 		$requester->notify(new ReturnStatusNotification('received', $return, $return->asset, $user));
@@ -217,6 +264,23 @@ class ReturnsController extends Controller
 
 		$return->received_at = now();
 		$return->save();
+		
+		$asset = $return->asset;
+
+		if ($asset) {
+		    $logaction = new Actionlog();
+		    $logaction->item_id = $asset->id;
+		    $logaction->item_type = Asset::class;
+		    $logaction->created_by = $user?->id;
+		    $logaction->created_at = now();
+
+		    if (!empty($user?->location_id)) {
+			$logaction->location_id = $user->location_id;
+		    }
+
+		    $logaction->note = 'Return received by Archive.';
+		    $logaction->logaction(ActionType::Accepted);
+		}
 
 		if (!$firstReturn) {
 		    $firstReturn = $return;

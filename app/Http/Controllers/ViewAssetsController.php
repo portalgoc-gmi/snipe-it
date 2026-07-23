@@ -22,6 +22,8 @@ use Illuminate\Support\Facades\Notification;
 
 use App\Models\ReturnRequest;
 use App\Notifications\ReturnStatusNotification;
+use App\Models\CheckoutAcceptance;
+
 
 /**
  * This controller handles all actions related to the ability for users
@@ -143,15 +145,30 @@ class ViewAssetsController extends Controller
 
         // Process custom fields for the user being viewed
         $fieldArray = $this->extractCustomFields($userToView);
-
+	
+	$pendingAcceptanceAssetIds = CheckoutAcceptance::query()
+	    ->where('checkoutable_type', Asset::class)
+	    ->where('assigned_to_id', $userToView->id)
+	    ->whereNull('accepted_at')
+	    ->whereNull('declined_at')
+	    ->pluck('checkoutable_id')
+	    ->map(fn ($id) => (int) $id)
+	    ->all();
+	 
+	 $visibleAssetsCount = $userToView->assets
+	    ->whereNotIn('id', $pendingAcceptanceAssetIds)
+	    ->count();
+	    
         // Pass the necessary data to the view
         return view('account/view-assets', [
-            'user' => $userToView, // Use 'user' for compatibility with the existing view
-            'field_array' => $fieldArray,
-            'settings' => $settings,
-            'subordinates' => $subordinates,
-            'selectedUserId' => $selectedUserId
-        ]);
+	    'user' => $userToView,
+	    'field_array' => $fieldArray,
+	    'settings' => $settings,
+	    'subordinates' => $subordinates,
+	    'selectedUserId' => $selectedUserId,
+	    'pendingAcceptanceAssetIds' => $pendingAcceptanceAssetIds,
+	    'visibleAssetsCount' => $visibleAssetsCount,
+	]);
     }
 
     /**
@@ -503,7 +520,19 @@ class ViewAssetsController extends Controller
 	    $firstAsset = null;
 
 	    foreach ($assets as $asset) {
-		if (empty($asset->can_pickup) || !empty($asset->open_return_id)) {
+		$hasPendingAcceptance = CheckoutAcceptance::query()
+		    ->where('checkoutable_type', Asset::class)
+		    ->where('checkoutable_id', $asset->id)
+		    ->where('assigned_to_id', $asset->assigned_to)
+		    ->whereNull('accepted_at')
+		    ->whereNull('declined_at')
+		    ->exists();
+
+		if (
+		    empty($asset->can_pickup) ||
+		    $hasPendingAcceptance ||
+		    !empty($asset->open_return_id)
+		) {
 		    continue;
 		}
 
@@ -523,7 +552,21 @@ class ViewAssetsController extends Controller
 		    'in_transit_at' => now(),
 		]);
 		
+		$logaction = new Actionlog();
+		$logaction->item_id = $asset->id;
+		$logaction->item_type = Asset::class;
+		$logaction->created_by = $user?->id;
+		$logaction->created_at = now();
+
+		if (!empty($user?->location_id)) {
+		    $logaction->location_id = $user->location_id;
+		}
+
+		$logaction->note = 'Return to Archive requested — awaiting Archive acceptance.';
+		$logaction->logaction(ActionType::Requested);
+		
 		$inTransitId = \App\Models\Statuslabel::where('name', 'In Transit')->value('id');
+				
 		if ($inTransitId) {
 		    $asset->status_id = $inTransitId;
 		    $asset->save();
@@ -575,10 +618,23 @@ class ViewAssetsController extends Controller
 	    $checkedOutCount = 0;
 
 	    foreach ($assets as $asset) {
-		try {
-		    if (!empty($asset->open_return_id)) {
-		        continue;
-		    }
+	    
+	    	    $hasPendingAcceptance = CheckoutAcceptance::query()
+			    ->where('checkoutable_type', Asset::class)
+			    ->where('checkoutable_id', $asset->id)
+			    ->where('assigned_to_id', $asset->assigned_to)
+			    ->whereNull('accepted_at')
+			    ->whereNull('declined_at')
+			    ->exists();
+
+			if ($hasPendingAcceptance) {
+			    continue;
+			}
+
+		    try {
+			if (!empty($asset->open_return_id)) {
+			    continue;
+			}
 
 		    $success = $asset->checkOut(
 		        $drgUser,

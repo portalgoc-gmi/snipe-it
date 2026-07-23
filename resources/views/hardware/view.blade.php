@@ -1471,7 +1471,7 @@ $openReturn = \App\Models\ReturnRequest::where('asset_id', $asset->id)
 						<th data-field="icon" data-formatter="iconFormatter"></th>
 						<th data-field="created_at" data-sortable="true" data-formatter="dateDisplayFormatter">Created At</th>
 						<th data-field="created_by" data-formatter="usersLinkObjFormatter">Created By</th>
-						<th data-field="action_type">Action</th>
+						<th data-field="action_type" data-formatter="actionTypeFormatter">Action</th>
 						<th data-field="item" data-formatter="polymorphicItemFormatter">Item</th>
 						<th data-field="target" data-formatter="polymorphicItemFormatter">Target</th>
 						<th data-field="note" data-formatter="notesFormatter">Notes</th>

@@ -1435,6 +1435,17 @@
     }
 
 
+    function actionTypeFormatter(value) {
+	    if (!value) {
+		return '';
+	    }
+
+	    if (String(value).toLowerCase() === 'declined') {
+		return '<span style="color:#dd4b39;font-weight:700;">declined</span>';
+	    }
+
+	    return value;
+	}
 
     function changeLogFormatter(value) {
 
