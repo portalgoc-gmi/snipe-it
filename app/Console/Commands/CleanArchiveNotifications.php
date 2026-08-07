@@ -19,7 +19,7 @@ class CleanArchiveNotifications extends Command
      *
      * @var string
      */
-    protected $description = 'Delete ARCHIVE notifications older than 10 days';
+    protected $description = 'Delete ARCHIVE notifications older than 20 days';
 
     /**
      * Execute the console command.
