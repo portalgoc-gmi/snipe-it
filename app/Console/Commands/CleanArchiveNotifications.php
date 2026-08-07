@@ -28,7 +28,7 @@ class CleanArchiveNotifications extends Command
     {
         $deleted = DB::table('notifications')
             ->where('notifiable_id', 2)
-            ->where('created_at', '<', now()->subDays(10))
+            ->where('created_at', '<', now()->subDays(20))
             ->delete();
 
         $this->info("Deleted {$deleted} old notifications.");
