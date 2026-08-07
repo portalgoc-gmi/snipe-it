@@ -69,6 +69,15 @@ class NotificationsController extends Controller
 			// ✅ ΠΡΟΣΟΧΗ: ΔΕΝ βάζουμε event εδώ, για να μη βγάζει διπλά
 			return $type . '|' . $keyId;
 		})->values();
+		$unreadBulkRequesterIds = $notifications
+		    ->filter(function ($n) {
+			return ($n->data['type'] ?? null) === 'asset_request_bulk'
+			    && is_null($n->read_at)
+			    && !empty($n->data['requested_by_id']);
+		    })
+		    ->pluck('data.requested_by_id')
+		    ->unique()
+		    ->flip();
 
 		$pending = [];
 		$completed = [];
@@ -87,13 +96,8 @@ class NotificationsController extends Controller
 		    }
 
 		    if ($type === 'asset_request') {
-			$hasUnreadBulk = $notifications->contains(function ($x) use ($n) {
-			    return ($x->data['type'] ?? null) === 'asset_request_bulk'
-				&& is_null($x->read_at)
-				&& (($x->data['requested_by_id'] ?? null) === ($n->data['requested_by_id'] ?? null));
-			});
-
-			if ($hasUnreadBulk) {
+			$requesterId = $n->data['requested_by_id'] ?? null;
+			if ($requesterId && $unreadBulkRequesterIds->has($requesterId)) {
 			    continue;
 			}
 
