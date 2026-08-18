@@ -73,4 +73,18 @@
 
 </div><!-- ./row -->
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('create-form');
+
+    if (form) {
+        form.addEventListener('submit', function () {
+            form.querySelectorAll('button[type="submit"]').forEach(function (button) {
+                button.disabled = true;
+            });
+        });
+    }
+});
+</script>
+
 @stop
