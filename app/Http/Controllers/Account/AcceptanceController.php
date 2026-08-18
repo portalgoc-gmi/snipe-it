@@ -292,6 +292,7 @@ class AcceptanceController extends Controller
 		    $item->save();
 		    
 		    $declineNote = trim((string) $request->input('note'));
+		    $declinedBy = auth()->user()?->location?->name ?? auth()->user()?->username ?? 'Unknown';
 
 			$logaction = new Actionlog();
 			$logaction->item_id = $item->id;
@@ -307,8 +308,8 @@ class AcceptanceController extends Controller
 			$logaction->target_type = User::class;
 
 			$logaction->note = $declineNote !== ''
-			    ? 'Checkout declined by DRG. Comment: ' . $declineNote
-			    : 'Checkout declined by DRG.';
+    ? 'Checkout declined by ' . $declinedBy . '. Comment: ' . $declineNote
+    : 'Checkout declined by ' . $declinedBy . '.';
 
 			$logaction->logaction(ActionType::Declined);
 
