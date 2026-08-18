@@ -37,7 +37,7 @@
                     <p class="text-muted">No open returns.</p>
                 @else
                 	
-                    <div style="display:flex; gap:10px; margin-bottom:15px; align-items:center;">
+                    <div id="returnsBulkToolbar" style="display:flex; gap:10px; margin-bottom:15px; align-items:center;">
 			    <form method="POST" action="{{ route('returns.bulk-received') }}" id="bulkReceivedForm" style="margin:0;">
 				@csrf
 				<button type="submit" class="btn btn-success" id="bulkMarkReceivedBtn">
@@ -56,7 +56,16 @@
 			
                     	<div class="table-responsive">
                     	
-                        <table id="returnsTable" class="table table-striped">
+                        <table
+			    id="returnsTable"
+			    class="table table-striped snipe-table"
+			    data-toolbar="#returnsBulkToolbar"
+			    data-id-table="returnsTable"
+			    data-cookie-id-table="returnsTable"
+			    data-export-options='{
+				"fileName": "returns-{{ date('Y-m-d') }}",
+				"ignoreColumn": ["checkbox","actions"]
+			    }'>
                             <thead>
                                 <tr>
                                     <th><input type="checkbox" id="checkAllReturns"></th>
@@ -169,6 +178,14 @@
         </div>
     </div>
 </div>
+@stop
+
+@section('moar_scripts')
+    @include ('partials.bootstrap-table', [
+        'exportFile' => 'returns-export',
+        'search' => true,
+        'clientSearch' => true,
+    ])
 @stop
 
 @push('js')
@@ -339,8 +356,9 @@ function applySort() {
 }
 
 document.addEventListener('click', function(e) {
-    if (e.target && e.target.classList.contains('sortable')) {
-        let col = parseInt(e.target.dataset.col);
+    let header = e.target.closest('th.sortable');
+    if (header) {
+        let col = parseInt(header.dataset.col);
 
         if (lastSort.col === col) {
             lastSort.asc = !lastSort.asc;
@@ -352,6 +370,7 @@ document.addEventListener('click', function(e) {
         applySort();
     }
 });
+
 </script>
 
 @endpush
