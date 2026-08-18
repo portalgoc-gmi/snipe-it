@@ -1,5 +1,8 @@
 @foreach($returns as $r)
-  <tr>
+  @php
+    $isDeceased = $r->asset && strtolower($r->asset->_snipeit_patient_status_5 ?? '') === 'deceased';
+  @endphp
+  <tr class="{{ $isDeceased ? 'deceased-row' : '' }}">
     <td>
       @if($canWarehouse && !empty($r->in_transit_at) && !$r->received_at)
 	    <input

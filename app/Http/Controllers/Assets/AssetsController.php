@@ -264,20 +264,20 @@ class AssetsController extends Controller
                 }
             }
         } catch (UniqueConstraintViolationException $e) {
-	    DB::rollBack();
+            DB::rollBack();
 
-	    if (str_contains($e->getMessage(), 'assets_active_asset_tag_unique')) {
-		return redirect()->back()
-		    ->withInput()
-		    ->with('error', 'An asset with this Asset Tag already exists.');
-	    }
+            if (str_contains($e->getMessage(), 'assets_active_asset_tag_unique')) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'An asset with this Asset Tag already exists.');
+            }
 
-	    throw $e;
-	} catch (\Throwable $e) {
-	    \Log::debug("Caught exception in multi-create - rolling back: " . $e->getMessage());
-	    DB::rollBack();
-	    throw $e;
-	}
+            throw $e;
+        } catch (\Throwable $e) {
+            \Log::debug("Caught exception in multi-create - rolling back: " . $e->getMessage());
+            DB::rollBack();
+            throw $e;
+        }
         DB::commit();
 
         if($request->input('redirect_option') === 'back'){

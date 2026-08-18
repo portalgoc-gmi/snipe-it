@@ -2,6 +2,13 @@
 
 @section('title')
     Returns : @parent
+<style>
+  #returnsTable tr.deceased-row td {
+    background-color: #d9c2f0 !important;
+    color: #4b2e83 !important;
+    font-weight: 600;
+  }
+</style>
 @stop
 
 @section('content')
@@ -63,7 +70,10 @@
                             </thead>
                             <tbody>
                                 @foreach($returns as $r)
-                                    <tr>
+				    @php
+					$isDeceased = $r->asset && strtolower($r->asset->_snipeit_patient_status_5 ?? '') === 'deceased';
+				    @endphp
+				    <tr class="{{ $isDeceased ? 'deceased-row' : '' }}">
                                     	
                                     	<td>
 						@if($canWarehouse && !empty($r->in_transit_at) && !$r->received_at)
