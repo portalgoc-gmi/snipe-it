@@ -79,10 +79,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (form) {
         form.addEventListener('submit', function () {
-            form.querySelectorAll('button[type="submit"]').forEach(function (button) {
-                button.disabled = true;
-            });
-        });
+	    if (!form.checkValidity()) {
+		return;
+	    }
+
+	    form.querySelectorAll('button[type="submit"]').forEach(function (button) {
+		button.disabled = true;
+	    });
+	});
     }
 });
 </script>

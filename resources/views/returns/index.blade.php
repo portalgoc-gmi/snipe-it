@@ -305,6 +305,12 @@
     });
 
     function refreshReturnsRows() {
+	    let searchInput = document.querySelector('.fixed-table-toolbar .search input');
+
+	    if (searchInput && searchInput.value.trim() !== '') {
+		return;
+	    }
+
 	    $.get("{{ route('returns.rows') }}", function (html) {
 		$('#returnsTable tbody').html(html);
 
