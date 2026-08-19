@@ -2,13 +2,6 @@
 
 @section('title')
     Returns : @parent
-<style>
-  #returnsTable tr.deceased-row td {
-    background-color: #d9c2f0 !important;
-    color: #4b2e83 !important;
-    font-weight: 600;
-  }
-</style>
 @stop
 
 @section('content')
